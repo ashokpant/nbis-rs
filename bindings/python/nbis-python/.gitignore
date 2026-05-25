@@ -1,0 +1,2 @@
+# UniFFI + maturin generate these at wheel build time; do not commit.
+nbis/nbis/

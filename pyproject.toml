@@ -1,6 +1,6 @@
 [project]
-name = "nbis-py"
-version = "0.1.4"
+name = "nbis-python"
+version = "0.1.5"
 description = "Python bindings for NBIS fingerprint processing using Rust + UniFFI"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,7 +34,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 manifest-path = "Cargo.toml"
-python-source = "bindings/python/nbis-py"
+python-source = "bindings/python/nbis-python"
 module-name = "nbis"
 bindings = "uniffi"
 include = ["LICENSE"]

@@ -18,7 +18,7 @@ from .nbis import (
 # Backward-compatible alias (Rust type is `ROI`, UniFFI exposes `Roi` in Python).
 ROI = Roi
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 __all__ = [
     "Minutia",
     "MinutiaKind",

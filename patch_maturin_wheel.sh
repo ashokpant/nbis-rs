@@ -2,9 +2,13 @@
 # Fix wheel METADATA for twine (remove duplicate License-File entries).
 set -euo pipefail
 
-pushd dist > /dev/null
+DIST_DIR=${MATURIN_DIST_DIR:-dist}
+WHEEL_GLOB=${WHEEL_GLOB:-nbis_python*.whl}
 
-wheel_file=$(ls *.whl | head -n 1)
+pushd "$DIST_DIR" > /dev/null
+
+wheel_file=$(ls -t $WHEEL_GLOB 2>/dev/null | head -n 1)
+wheel_file=${wheel_file:-$(ls -t *.whl | head -n 1)}
 wheel_path=$(realpath "$wheel_file")
 wheel_unzip_dir=$(mktemp -d)
 
@@ -23,4 +27,4 @@ zip -qr "$wheel_path" *
 popd > /dev/null
 rm -rf "$wheel_unzip_dir"
 
-echo "Patched wheel: dist/$(basename "$wheel_path")"
+echo "Patched wheel: $DIST_DIR/$(basename "$wheel_path")"

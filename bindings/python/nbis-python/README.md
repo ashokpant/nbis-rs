@@ -11,7 +11,7 @@ This package provides Python bindings for the NIST Biometric Image Software (NBI
 To install the Python bindings, you can use pip:
 
 ```bash
-pip install nbis-py
+pip install nbis-python
 ```
 
 ## Usage

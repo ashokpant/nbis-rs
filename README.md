@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 To install the Python bindings, you can use pip:
 
 ```bash
-pip install nbis-py
+pip install nbis-python
 ```
 
 ## Usage (Python)

@@ -72,15 +72,15 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build and validate wheel
+      - name: Build nbis-python wheel
         run: |
           python -m pip install "maturin>=1.5,<2.0" twine
-          maturin build --release --manifest-path Cargo.toml --out dist --locked --auditwheel=skip
+          maturin build --release --manifest-path Cargo.toml --out dist --strip --locked --auditwheel=skip
           bash ./patch_maturin_wheel.sh
-          twine check dist/nbis_py*.whl
+          twine check dist/*.whl
       - name: Run pytest
         run: |
-          python -m pip install dist/nbis_py*.whl
+          python -m pip install dist/*.whl
           python -m pip install -r bindings/python/tests/requirements.txt
           cd bindings/python/tests && python -m pytest -v --tb=short
       - uses: actions/upload-artifact@v5

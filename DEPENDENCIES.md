@@ -27,10 +27,22 @@ cargo build --release
 ## Python (3.10+)
 
 ```bash
-make python
+make python          # wheel for your current OS (macOS or Linux)
+make python-linux    # Linux x86_64 wheel via Docker (from macOS or anywhere with Docker)
 ```
 
-Wheels are built with `auditwheel = "skip"` so maturin does not bundle Homebrew dylibs (avoids OpenCV/OpenEXR version skew on macOS). At runtime you need system OpenCV 4 installed.
+Linux cross-build uses `ubuntu:24.04` (builds in a temporary `dist/linux/`, then copies the wheel to `dist/`). Override platform with `LINUX_PLATFORM=linux/arm64 make python-linux` for ARM64 Linux.
+
+Wheels are built with `auditwheel = "skip"` so maturin does not bundle system OpenCV dylibs. At runtime you need system OpenCV 4 installed (`libopencv-dev` on Debian/Ubuntu, Homebrew `opencv` on macOS).
+
+### Publish to PyPI (local only)
+
+```bash
+make python          # and/or make python-linux
+make publish         # twine upload (uses .venv from make python)
+```
+
+**GitHub Actions:** [`ci.yml`](.github/workflows/ci.yml) (CI), [`release.yml`](.github/workflows/release.yml) (tag → GitHub Release with wheel assets; no PyPI).
 
 ## macOS troubleshooting
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the nbis-py wheel. Uses system OpenCV; skips maturin dylib repair on macOS.
+# Build the nbis-python wheel. Uses system OpenCV; skips maturin dylib repair on macOS.
 set -euo pipefail
 
 mkdir -p dist
@@ -20,7 +20,6 @@ case "$(uname -s)" in
     ;;
 esac
 
-# Pick the newest available Python >= 3.10 for the build venv.
 PYTHON=""
 for candidate in python3.12 python3.11 python3.10 python3; do
   if command -v "$candidate" >/dev/null 2>&1; then
@@ -34,7 +33,7 @@ for candidate in python3.12 python3.11 python3.10 python3; do
   fi
 done
 if [ -z "$PYTHON" ]; then
-  echo "Python 3.10+ is required. Install python3.10, python3.11, or python3.12."
+  echo "Python 3.10+ is required."
   exit 1
 fi
 echo "Using $PYTHON ($($PYTHON --version))"
@@ -49,7 +48,6 @@ source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
 pip install "maturin>=1.5,<2.0" twine
 
-# auditwheel=skip: do not run delocate repair (Homebrew OpenCV/OpenEXR version skew breaks repair).
 maturin build \
   --release \
   --manifest-path Cargo.toml \
@@ -59,9 +57,7 @@ maturin build \
   --auditwheel=skip
 
 bash ./patch_maturin_wheel.sh
-twine check dist/nbis_py*.whl
+twine check dist/nbis_python*.whl
 
-echo "Built: dist/nbis_py-*.whl"
-echo "Install with the same Python (>=3.10):"
-echo "  $VENV_DIR/bin/pip install dist/nbis_py-*.whl"
-echo "  # or: $PYTHON -m pip install dist/nbis_py-*.whl"
+echo "Built: dist/nbis_python-*.whl"
+echo "  $VENV_DIR/bin/pip install dist/nbis_python-*.whl"
