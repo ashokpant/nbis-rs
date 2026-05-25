@@ -1,13 +1,22 @@
-.PHONY: build build-release test python android clean help
+.PHONY: build build-release test python clean help install-linux install-macos
 
 help:
-	@echo "NBIS-rs Build System"
-	@echo "make build              Build in debug mode"
-	@echo "make build-release      Build in release mode"
-	@echo "make test               Run tests"
-	@echo "make python             Build Python bindings"
-	@echo "make android            Build Android bindings"
-	@echo "make clean              Clean build artifacts"
+	@echo "NBIS-rs"
+	@echo "  make install-linux   Install system deps (Debian/Ubuntu)"
+	@echo "  make install-macos   Install system deps (Homebrew)"
+	@echo "  make build           Debug build"
+	@echo "  make build-release   Release build"
+	@echo "  make test            Run tests"
+	@echo "  make python          Install deps + build Python wheel"
+	@echo "  make clean           Remove build artifacts"
+
+install-linux:
+	@chmod +x scripts/install-deps-linux.sh 2>/dev/null || true
+	./scripts/install-deps-linux.sh
+
+install-macos:
+	@chmod +x scripts/install-deps-macos.sh 2>/dev/null || true
+	./scripts/install-deps-macos.sh
 
 build:
 	cargo build
@@ -19,15 +28,12 @@ test:
 	cargo test --verbose
 
 python:
+	@chmod +x build_python.sh scripts/*.sh patch_maturin_wheel.sh 2>/dev/null || true
 	./build_python.sh
-
-android:
-	./build_android.sh
 
 clean:
 	cargo clean
-	rm -rf dist/
-	rm -rf .venv/
+	rm -rf dist/ .venv/
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 .SILENT: help

@@ -11,13 +11,29 @@ For convenience, this library also binds to the [NIST Fingerprint Image Quality]
 - Matches minutiae templates against each other using the NBIS Bozorth3 algorithm
 - Provides support for NFIQ2 quality assessment
 
+## Building from source
+
+Native dependencies (OpenCV 4, CMake, C++ toolchain) are required. See [DEPENDENCIES.md](DEPENDENCIES.md).
+
+```bash
+# macOS
+./scripts/install-deps-macos.sh
+
+# Linux (Debian/Ubuntu)
+./scripts/install-deps-linux.sh
+
+cargo build --release
+cargo test
+make python   # optional Python wheel
+```
+
 ## Installation (Rust)
 
 To use NBIS-rs, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-nbis-rs = { git = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs", branch = "main", version = "0.1.2" }
+nbis-rs = { git = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs", branch = "main", version = "0.1.3" }
 ```
 Or you can run the following command on the terminal of your new rust project:
 

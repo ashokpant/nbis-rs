@@ -20,10 +20,15 @@ include_directories("${SUPERBUILD_ROOT_PATH}/NFIQ2/NFIQ2Algorithm/include")
 
 include_directories("${SUPERBUILD_ROOT_PATH}/fingerjetfxose/download/FingerJetFXOSE-master/src/libFRFXLL/include")
 
-set( OpenCV_DIR ${CMAKE_BINARY_DIR}/../../../OpenCV-prefix/src/OpenCV-build)
-find_package(OpenCV REQUIRED NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH HINTS ${OpenCV_DIR})
+option(USE_SYSTEM_OPENCV "Use system-installed OpenCV 4" OFF)
+if(USE_SYSTEM_OPENCV)
+	find_package(OpenCV 4 REQUIRED COMPONENTS core ml imgproc imgcodecs)
+else()
+	set(OpenCV_DIR ${CMAKE_BINARY_DIR}/../../../OpenCV-prefix/src/OpenCV-build)
+	find_package(OpenCV REQUIRED NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH HINTS ${OpenCV_DIR})
+endif()
 set(OpenCV_SHARED ON)
-include_directories(${OpenCV_INCLUDE})
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 # set and increment version
 include( "${SUPERBUILD_ROOT_PATH}/NFIQ2/version.cmake" )

@@ -1,5 +1,4 @@
-use once_cell::sync::Lazy;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::minutia::Minutia;
 use crate::structs::ROI;
@@ -33,7 +32,7 @@ impl Minutiae {
     }
 }
 
-static BOZORTH_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static BOZORTH_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[uniffi::export]
 impl Minutiae {

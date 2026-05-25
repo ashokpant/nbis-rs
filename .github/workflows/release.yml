@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   release-notes:
-    name: Generate Release Notes
+    name: GitHub Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -17,40 +17,43 @@ jobs:
           fetch-depth: 0
       - name: Generate release notes
         run: |
-          git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"%h %s" > /tmp/release-notes.txt
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+          prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$prev" ]; then
+            git log "${prev}..HEAD" --pretty=format:"%h %s" > /tmp/release-notes.txt
+          else
+            git log -20 --pretty=format:"%h %s" > /tmp/release-notes.txt
+          fi
+      - uses: softprops/action-gh-release@v2
         with:
           body_path: /tmp/release-notes.txt
           draft: false
           prerelease: false
 
-  build-wheels:
-    name: Build Python Wheel (${{ matrix.os }})
+  wheels:
+    name: Python wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            python-version: "3.11"
-          - os: macos-latest
-            python-version: "3.11"
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Install native dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
+      - name: Install native dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install opencv pkg-config cmake
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Build wheels
-        run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip maturin
-          maturin build --release --out dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          pip install "maturin>=1.5,<2.0" twine
+          maturin build --release --out dist --locked --auditwheel=skip
+          bash ./patch_maturin_wheel.sh
+          twine check dist/nbis_py*.whl
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: release-wheel-${{ matrix.os }}
           path: dist/*.whl

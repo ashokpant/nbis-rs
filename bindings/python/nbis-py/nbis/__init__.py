@@ -1,4 +1,36 @@
-from . import nbis
+"""Python bindings for NBIS fingerprint processing (Rust + UniFFI)."""
 
-__version__ = "0.1.3"
-__all__ = ["nbis"]
+from .nbis import (
+    Minutia,
+    MinutiaKind,
+    Minutiae,
+    NbisError,
+    NbisExtractor,
+    NbisExtractorSettings,
+    Nfiq2Result,
+    Nfiq2Value,
+    Position,
+    Point,
+    Roi,
+    new_nbis_extractor,
+)
+
+# Backward-compatible alias (Rust type is `ROI`, UniFFI exposes `Roi` in Python).
+ROI = Roi
+
+__version__ = "0.1.4"
+__all__ = [
+    "Minutia",
+    "MinutiaKind",
+    "Minutiae",
+    "NbisError",
+    "NbisExtractor",
+    "NbisExtractorSettings",
+    "Nfiq2Result",
+    "Nfiq2Value",
+    "Position",
+    "Point",
+    "Roi",
+    "ROI",
+    "new_nbis_extractor",
+]

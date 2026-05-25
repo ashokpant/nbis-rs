@@ -2,7 +2,7 @@
 name = "nbis-rs"
 version = "0.1.3"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.80"
 
 authors = ["Varun Chatterji <varun@seventhsense.ai>"]
 description = "A Rust binding to the NIST Biometric Image Software (NBIS) library, which is used for processing biometric images, particularly in the context of fingerprint recognition"
@@ -34,10 +34,8 @@ uniffi = { version = "0.29", features = ["cli"] }
 [build-dependencies]
 cc = "1.2"
 cmake = "0.1"
+pkg-config = "0.3"
 uniffi = { version = "0.29", features = ["build"] }
-
-[dev-dependencies]
-criterion = "0.5"
 
 [profile.release]
 opt-level = 3
