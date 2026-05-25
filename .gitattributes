@@ -1,0 +1,37 @@
+# Unified diff configuration
+*.rs diff=rust
+*.toml diff=toml
+*.py diff=python
+*.yml diff=yaml
+*.yaml diff=yaml
+*.md diff=markdown
+
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows batch files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Explicitly declare text files
+*.txt text
+*.md text
+*.toml text
+*.yml text
+*.yaml text
+*.json text
+*.gradle text
+
+# Explicitly declare binary files
+*.o binary
+*.a binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.whl binary

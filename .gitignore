@@ -1,11 +1,59 @@
+# Rust
 /target
-**/.DS_Store
+Cargo.lock
+*.swp
+*.swo
+*~
+.#*
+
+# Python
 dist/
+build/
+*.egg-info/
 __pycache__/
 *.pyc
-.venv/ 
+*.pyo
+*.pyd
+.Python
+.venv/
+.env
 .pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.c9/
+*.launch
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Build artifacts
 ext/NFIQ2-2.3.0/opencv/
 ext/NFIQ2-2.3.0/fingerjetfxose/
 ext/NFIQ2-2.3.0/digestpp/
 ext/NFIQ2-2.3.0/libbiomeval/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Other
+.nbis-venv/
+*.whl

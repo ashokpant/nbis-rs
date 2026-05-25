@@ -1,32 +1,41 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Create dist folder if it doesn't exist
-mkdir -p dist
+echo "Checking prerequisites..."
 
-if [ -f /etc/os-release ] && grep -qiE 'ubuntu|debian' /etc/os-release; then
-  echo "Detected Debian/Ubuntu; installing required packages..."
-  sudo apt-get update
-  sudo apt-get install -y openjdk-17-jdk
-else
-  echo "This script is designed for Debian/Ubuntu systems."
+if ! command -v cargo &> /dev/null; then
+  echo "Error: Cargo is required but not installed."
   exit 1
 fi
 
-# Set path to jniLibs target dir
-JNILIBS_DIR="bindings/android/app/src/main/jniLibs"
+if [ -z "${ANDROID_NDK_ROOT:-}" ]; then
+  echo "Error: ANDROID_NDK_ROOT environment variable not set"
+  exit 1
+fi
 
-# Android targets you want to build for
-TARGETS=(
-  "aarch64-linux-android"    # arm64-v8a
-  "armv7-linux-androideabi"  # armeabi-v7a
-)
+if [ ! -d "$ANDROID_NDK_ROOT" ]; then
+  echo "Error: ANDROID_NDK_ROOT directory does not exist"
+  exit 1
+fi
 
-# Build each target
+echo "Checking for cargo-ndk..."
+if ! command -v cargo-ndk &> /dev/null; then
+  echo "Installing cargo-ndk..."
+  cargo install cargo-ndk
+fi
+
+echo "Setting up Rust targets..."
+rustup target add aarch64-linux-android armv7-linux-androideabi
+
+TARGETS=("aarch64-linux-android" "armv7-linux-androideabi")
+
 for TARGET in "${TARGETS[@]}"; do
-  echo "📦 Building for $TARGET..."
+  echo "Building for $TARGET..."
   cargo ndk -t "$TARGET" -o ./target/android build --release
 done
+
+echo "Android build completed successfully"
+ls -lh ./target/android/*/release/*.so 2>/dev/null || true
 
 # Clear jniLibs output
 echo "🧹 Cleaning existing jniLibs..."

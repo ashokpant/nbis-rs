@@ -1,103 +1,138 @@
-name: nbis build main
+name: Continuous Integration
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
-  build-and-test:
-    runs-on: Linux
-
+  check:
+    name: Check
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      # with:
-      #    clean: false
-    - name: Add cargo to path
-      run: echo "/home/ubuntu/.cargo/bin" >> $GITHUB_PATH
-    - name: Run rust cargo tests
-      run: cargo test --release --all
-    - name: Run build
-      run: cargo build
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-features --locked
 
-  build-python-bindings:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --all --locked --verbose
+      - name: Run doc tests
+        run: cargo test --doc --locked
+
+  build:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    needs: [check, fmt, clippy, test]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release
+        run: cargo build --release --locked --all
+
+  build-python:
     name: Build Python Wheel (${{ matrix.os }})
+    needs: [build]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [Linux, macOS]
-    needs: [build-and-test]
-
+        os: [ubuntu-latest, macos-latest]
     steps:
-    - uses: actions/checkout@v4
-      with:
-          clean: false
-    - name: Add cargo to path
-      run: echo "/home/ubuntu/.cargo/bin" >> $GITHUB_PATH
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build wheel
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "maturin>=1.5,<2.0"
+          maturin build --release --manifest-path Cargo.toml --out dist --locked
+      - name: Patch wheel
+        run: bash ./patch_maturin_wheel.sh
+      - name: Validate wheel
+        run: |
+          python3 -m pip install twine
+          twine check dist/nbis_py*.whl
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/*.whl
+          retention-days: 5
 
-    - name: Build wheel
-      run: |
-        rm -rf .nbis-venv
-        python3 -m venv .nbis-venv
-        source .nbis-venv/bin/activate
-        pip install maturin
-        maturin build --release --manifest-path Cargo.toml --out dist
-
-    - name: Patch wheel
-      run: ./patch_maturin_wheel.sh
-
-    - name: Check wheel integrity
-      run: |
-        source .nbis-venv/bin/activate
-        pip install twine
-        twine check dist/nbis_py*
-
-    - name: Upload wheel as artifact
-      uses: actions/upload-artifact@v4
-      with:
-            name: ${{ runner.os }}-wheel
-            path: dist/*.whl
-  
-  test-python-bindings:
-    name: Run Pytest on Python Wheel (${{ matrix.os }})
+  test-python:
+    name: Test Python Wheel (${{ matrix.os }})
+    needs: [build-python]
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [Linux, macOS]
-    needs: [build-python-bindings]
-
+        os: [ubuntu-latest, macos-latest]
     steps:
-    - uses: actions/checkout@v4
-      with:
-          clean: false
-
-    - name: Download built wheel
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ runner.os }}-wheel
-        path: dist/
-
-    - name: Install wheel and test dependencies
-      run: |
-        rm -rf .nbis-venv
-        python3 -m venv .nbis-venv
-        source .nbis-venv/bin/activate
-        pip install dist/*.whl
-        pip install -r bindings/python/tests/requirements.txt
-
-    - name: Run pytest
-      run: |
-        source .nbis-venv/bin/activate
-        cd bindings/python/tests
-        pytest -v
-    
-    - name: Upload wheel as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ runner.os }}-wheel
-        path: dist/*.whl
-        overwrite: true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist/
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install dist/*.whl
+          python3 -m pip install -r bindings/python/tests/requirements.txt
+      - name: Run pytest
+        run: |
+          cd bindings/python/tests
+          python3 -m pytest -v --tb=short
 
   build-python-bindings-windows:
     name: Build Python Wheel (Windows)

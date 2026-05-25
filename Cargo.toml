@@ -2,6 +2,7 @@
 name = "nbis-rs"
 version = "0.1.3"
 edition = "2021"
+rust-version = "1.70"
 
 authors = ["Varun Chatterji <varun@seventhsense.ai>"]
 description = "A Rust binding to the NIST Biometric Image Software (NBIS) library, which is used for processing biometric images, particularly in the context of fingerprint recognition"
@@ -12,9 +13,9 @@ homepage = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
 documentation = "https://docs.rs/nbis-rs"
 keywords = ["biometrics", "fingerprint", "nbis"]
 categories = ["algorithms", "api-bindings"]
+publish = true
 
-# Optional but recommended:
-exclude = ["/.github", "/examples", "/test_data", "/scripts"]
+exclude = ["/.github", "/examples", "/test_data", "/scripts", "/.vscode", "/.venv"]
 
 [[bin]]
 name = "uniffi-bindgen"
@@ -22,16 +23,35 @@ path = "uniffi_bindgen.rs"
 
 [lib]
 crate-type = ["lib", "cdylib"]
-name = "nbis" 
-
-[build-dependencies]
-cc = "1.2.29"
-cmake = "0.1"
-uniffi = { version = "0.29.3", features = ["build"] }
+name = "nbis"
 
 [dependencies]
-image = "0.25.6"
-imageproc = "0.25.0"
-once_cell = "1.21.3"
-thiserror = "2.0.12"
-uniffi = { version = "0.29.3", features = ["cli"] }
+image = "0.25"
+imageproc = "0.25"
+thiserror = "2.0"
+uniffi = { version = "0.29", features = ["cli"] }
+
+[build-dependencies]
+cc = "1.2"
+cmake = "0.1"
+uniffi = { version = "0.29", features = ["build"] }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+
+[profile.test]
+opt-level = 1
+
+[profile.bench]
+opt-level = 3
+lto = true
+codegen-units = 1

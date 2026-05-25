@@ -1,0 +1,4 @@
+# Clippy linting rules
+# Allow some reasonable complexity for FFI code
+too-many-arguments-threshold = 8
+type-complexity-threshold = 500

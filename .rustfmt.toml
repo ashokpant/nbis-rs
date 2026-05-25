@@ -1,0 +1,18 @@
+# Rust formatting standards
+edition = "2021"
+max_width = 120
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Auto"
+use_small_heuristics = "Default"
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+spaces_around_ranges = false
+overflow_delimited_expressions = true
+struct_literal_style = "Block"
+fn_single_line = false
+where_single_line = false
+comment_width = 80
+wrap_comments = true
+normalize_comments = true

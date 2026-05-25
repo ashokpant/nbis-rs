@@ -4,29 +4,55 @@ version = "0.1.3"
 description = "Python bindings for NBIS fingerprint processing using Rust + UniFFI"
 readme = "README.md"
 requires-python = ">=3.8"
+license = { text = "MIT" }
 authors = [
   { name = "Varun Chatterji", email = "varun@seventhsense.ai" }
 ]
 keywords = ["fingerprint", "nbis", "biometrics", "rust", "uniffi"]
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Rust",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
-"Repository" = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
+Homepage = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
+Repository = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
+Documentation = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs"
+"Bug Tracker" = "https://github.com/Seventh-Sense-Artificial-Intelligence/nbis-rs/issues"
 
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-# Point maturin to your Rust crate root
 manifest-path = "Cargo.toml"
 python-source = "bindings/python/nbis-py"
 module-name = "nbis"
 bindings = "uniffi"
 include = ["LICENSE"]
+
+[tool.black]
+line-length = 120
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+py_version = 38
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
