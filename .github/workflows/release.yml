@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Generate release notes
@@ -23,7 +23,7 @@ jobs:
           else
             git log -20 --pretty=format:"%h %s" > /tmp/release-notes.txt
           fi
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           body_path: /tmp/release-notes.txt
           draft: false
@@ -36,7 +36,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
@@ -53,7 +53,7 @@ jobs:
           maturin build --release --out dist --locked --auditwheel=skip
           bash ./patch_maturin_wheel.sh
           twine check dist/nbis_py*.whl
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-wheel-${{ matrix.os }}
           path: dist/*.whl

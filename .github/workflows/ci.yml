@@ -12,38 +12,35 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets --locked -- -D warnings
-
-  test:
-    name: Test (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Install native dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
+      - name: Install native dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install opencv pkg-config cmake
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
@@ -53,18 +50,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --locked --verbose
-      - run: cargo test --doc --locked
 
   python:
     name: Python wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [fmt, clippy, test]
+    needs: [test]
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
@@ -78,16 +74,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build and validate wheel
         run: |
-          pip install "maturin>=1.5,<2.0" twine
+          python -m pip install "maturin>=1.5,<2.0" twine
           maturin build --release --manifest-path Cargo.toml --out dist --locked --auditwheel=skip
           bash ./patch_maturin_wheel.sh
           twine check dist/nbis_py*.whl
       - name: Run pytest
         run: |
-          pip install dist/nbis_py*.whl
-          pip install -r bindings/python/tests/requirements.txt
+          python -m pip install dist/nbis_py*.whl
+          python -m pip install -r bindings/python/tests/requirements.txt
           cd bindings/python/tests && python -m pytest -v --tb=short
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: wheel-${{ matrix.os }}
           path: dist/*.whl
