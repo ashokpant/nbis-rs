@@ -13,7 +13,7 @@ docker build \
   --platform "$PLATFORM" \
   -f docker/nbis-rs-linux-builder.Dockerfile \
   -t "$IMAGE" \
-  docker
+  .
 
 echo "Done: $IMAGE"
 echo "  make python-linux"

@@ -91,10 +91,10 @@ impl Nfiq2 {
             count: usize,
         ) -> Result<Vec<Nfiq2Value>, NbisError> {
             let mut out = Vec::with_capacity(count);
-            let id_slice = std::slice::from_raw_parts(ids_ptr, count);
-            let val_slice = std::slice::from_raw_parts(vals_ptr, count);
+            let id_slice = unsafe { std::slice::from_raw_parts(ids_ptr, count) };
+            let val_slice = unsafe { std::slice::from_raw_parts(vals_ptr, count) };
             for i in 0..count {
-                let s = CStr::from_ptr(id_slice[i])
+                let s = unsafe { CStr::from_ptr(id_slice[i]) }
                     .to_str()
                     .map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?
                     .to_string();

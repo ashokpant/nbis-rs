@@ -10,6 +10,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  OPENCV_DIR: /usr/local/lib/cmake/opencv4
+  PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+  LD_LIBRARY_PATH: /usr/local/lib
 
 jobs:
   build:
@@ -21,13 +24,25 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
+      - name: Cache OpenCV 4.13 (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/cmake/opencv4
+            /usr/local/lib/libopencv_*
+            /usr/local/lib/pkgconfig/opencv4.pc
+            /usr/local/include/opencv4
+          key: opencv-4.13.0-linux-${{ runner.arch }}
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
+        run: sudo bash ./scripts/install-opencv-4.13-linux.sh
       - name: Install native dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install opencv pkg-config cmake
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked
 
@@ -41,13 +56,25 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
+      - name: Cache OpenCV 4.13 (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/cmake/opencv4
+            /usr/local/lib/libopencv_*
+            /usr/local/lib/pkgconfig/opencv4.pc
+            /usr/local/include/opencv4
+          key: opencv-4.13.0-linux-${{ runner.arch }}
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
+        run: sudo bash ./scripts/install-opencv-4.13-linux.sh
       - name: Install native dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install opencv pkg-config cmake
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --locked --verbose
 
@@ -61,24 +88,42 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
+      - name: Cache OpenCV 4.13 (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/cmake/opencv4
+            /usr/local/lib/libopencv_*
+            /usr/local/lib/pkgconfig/opencv4.pc
+            /usr/local/include/opencv4
+          key: opencv-4.13.0-linux-${{ runner.arch }}
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libopencv-dev pkg-config cmake build-essential
+        run: sudo bash ./scripts/install-opencv-4.13-linux.sh
       - name: Install native dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install opencv pkg-config cmake
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Build nbis-python wheel
+        env:
+          OPENCV_DIR: /usr/local/lib/cmake/opencv4
+          PKG_CONFIG_PATH: /usr/local/lib/pkgconfig
+          LD_LIBRARY_PATH: /usr/local/lib
         run: |
           python -m pip install "maturin>=1.5,<2.0" twine
           maturin build --release --manifest-path Cargo.toml --out dist --strip --locked --auditwheel=skip
           bash ./patch_maturin_wheel.sh
           twine check dist/*.whl
       - name: Run pytest
+        env:
+          LD_LIBRARY_PATH: /usr/local/lib
         run: |
           python -m pip install dist/*.whl
           python -m pip install -r bindings/python/tests/requirements.txt

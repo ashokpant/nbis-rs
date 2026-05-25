@@ -18,7 +18,7 @@ pub struct Nfiq2WrapperOpaque {
 }
 
 // FFI imports
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn nfiq2wrapper_create() -> *mut Nfiq2WrapperOpaque;
     pub(crate) fn nfiq2wrapper_destroy(ctx: *mut Nfiq2WrapperOpaque);
 

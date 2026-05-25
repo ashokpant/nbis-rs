@@ -13,7 +13,7 @@ For convenience, this library also binds to the [NIST Fingerprint Image Quality]
 
 ## Building from source
 
-Native dependencies (OpenCV 4, CMake, C++ toolchain) are required. See [DEPENDENCIES.md](DEPENDENCIES.md).
+Native dependencies (OpenCV **4.13**, Rust **1.95** / edition **2024**, CMake, C++ toolchain) are required. See [DEPENDENCIES.md](DEPENDENCIES.md).
 
 ```bash
 # macOS

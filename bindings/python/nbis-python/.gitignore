@@ -1,2 +1,1 @@
-# UniFFI + maturin generate these at wheel build time; do not commit.
-nbis/nbis/
+# Empty; stubs live in _uniffi_stubs/ (not merged by maturin).

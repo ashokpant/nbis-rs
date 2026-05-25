@@ -19,7 +19,7 @@ pub(crate) struct xyt_struct {
     pub theta: [c_int; MAX_BOZORTH_MINUTIAE],
 }
 
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn bozorth_main(probe: *const xyt_struct, gallery: *const xyt_struct) -> c_int;
 }
 
@@ -140,7 +140,7 @@ pub(crate) struct LFSPARMS {
 //  FFI function prototypes (unchanged)
 ////////////////////////////////////////////////////////////////////////////////
 
-extern "C" {
+unsafe extern "C" {
     // --  Core entry point ---------------------------------------------------
     pub(crate) fn get_minutiae(
         ominutiae: *mut *mut MINUTIAE,
@@ -168,7 +168,7 @@ extern "C" {
     pub(crate) fn free(ptr: *mut c_void); // libc::free
 }
 
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn sivv_ffi_from_bytes(data: *const u8, width: c_int, height: c_int) -> *mut c_char;
     pub(crate) fn sivv_ffi_free_bytes(ptr: *mut c_char);
 }
@@ -179,7 +179,7 @@ pub struct CPoint2i {
     pub y: c_int,
 }
 
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn find_fingerprint_center_morph_c(
         data: *const u8,
         width: c_int,

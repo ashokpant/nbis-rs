@@ -1,6 +1,6 @@
 [project]
 name = "nbis-python"
-version = "0.1.7"
+version = "0.1.10"
 description = "Python bindings for NBIS fingerprint processing using Rust + UniFFI"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,8 +40,9 @@ python-source = "bindings/python/nbis-python"
 module-name = "nbis"
 bindings = "uniffi"
 include = ["LICENSE"]
-# macOS: skip delocate repair when Homebrew OpenCV/OpenEXR versions are mismatched.
-# Wheels then depend on system OpenCV 4 (see DEPENDENCIES.md). Linux manylinux repair is unaffected.
+# macOS: skip delocate repair (Homebrew OpenCV/OpenEXR skew). Linux: skip bundling system OpenCV.
+# manylinux_2_28 tag for PyPI (auditwheel skip: system OpenCV required at runtime).
+compatibility = "manylinux_2_28"
 auditwheel = "skip"
 
 [tool.black]

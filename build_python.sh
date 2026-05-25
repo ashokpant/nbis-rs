@@ -57,7 +57,14 @@ maturin build \
   --auditwheel=skip
 
 bash ./patch_maturin_wheel.sh
-twine check dist/nbis_python*.whl
 
-echo "Built: dist/nbis_python-*.whl"
-echo "  $VENV_DIR/bin/pip install dist/nbis_python-*.whl"
+case "$(uname -s)" in
+  Darwin) bash ./scripts/sync_uniffi_stub.sh ;;
+  *) bash ./scripts/sync_uniffi_stub.sh --if-present ;;
+esac
+
+wheel=$(ls -t dist/nbis_python*.whl | head -n 1)
+twine check "$wheel"
+
+echo "Built: $wheel"
+echo "  $VENV_DIR/bin/pip install $wheel"

@@ -1,8 +1,8 @@
 [package]
 name = "nbis-rs"
-version = "0.1.7"
-edition = "2021"
-rust-version = "1.80"
+version = "0.1.10"
+edition = "2024"
+rust-version = "1.95.0"
 
 authors = ["Varun Chatterji <varun@seventhsense.ai>"]
 description = "A Rust binding to the NIST Biometric Image Software (NBIS) library, which is used for processing biometric images, particularly in the context of fingerprint recognition"

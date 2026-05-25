@@ -1,6 +1,6 @@
 """Python bindings for NBIS fingerprint processing (Rust + UniFFI)."""
 
-from .nbis import (
+from .nbis.nbis import (
     Minutia,
     MinutiaKind,
     Minutiae,

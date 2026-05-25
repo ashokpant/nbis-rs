@@ -7,7 +7,7 @@ help:
 	@echo "  make build           Debug build"
 	@echo "  make build-release   Release build"
 	@echo "  make test            Run tests"
-	@echo "  make python          Build nbis-python wheel (native OS)"
+	@echo "  make python          Build wheel + sync _uniffi_stubs (macOS → Linux)"
 	@echo "  make linux-baseimage Build/rebuild Docker image for python-linux"
 	@echo "  make python-linux    Build nbis-python wheel (Docker base image)"
 	@echo "  make publish         Upload dist/nbis_python-*.whl to PyPI"
@@ -23,9 +23,13 @@ install-macos:
 
 build:
 	cargo build
+	@chmod +x scripts/sync_uniffi_stub.sh 2>/dev/null || true
+	@./scripts/sync_uniffi_stub.sh --if-present
 
 build-release:
 	cargo build --release --locked
+	@chmod +x scripts/sync_uniffi_stub.sh 2>/dev/null || true
+	@./scripts/sync_uniffi_stub.sh --if-present
 
 test:
 	cargo test --verbose

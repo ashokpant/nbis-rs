@@ -8,7 +8,7 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 echo "Installing build dependencies..."
-brew install cmake pkg-config openexr opencv
+brew install cmake pkg-config openexr opencv  # OpenCV 4.13+ required
 
 # Reinstall only when OpenCV references OpenEXR dylibs that are missing (common after brew upgrades).
 needs_reinstall=false

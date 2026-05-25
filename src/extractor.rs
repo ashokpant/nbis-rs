@@ -201,7 +201,7 @@ impl NbisExtractor {
 
         // 6) Call into C ---------------------------------------------------------
         let rc = unsafe {
-            extern "C" {
+            unsafe extern "C" {
                 static lfsparms_V2: LFSPARMS;
             }
             get_minutiae(
