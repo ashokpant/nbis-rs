@@ -31,7 +31,14 @@ make python          # wheel for your current OS (macOS or Linux)
 make python-linux    # Linux x86_64 wheel via Docker (from macOS or anywhere with Docker)
 ```
 
-Linux cross-build uses `ubuntu:24.04` (builds in a temporary `dist/linux/`, then copies the wheel to `dist/`). Override platform with `LINUX_PLATFORM=linux/arm64 make python-linux` for ARM64 Linux.
+Linux cross-build uses Docker image `nbis-rs-linux-builder:24.04` (Rust, OpenCV, maturin preinstalled). First run builds the base image automatically; rebuild after toolchain changes with `make linux-baseimage`. Wheels are built in `dist/linux/`, then copied to `dist/`.
+
+```bash
+make linux-baseimage   # optional: rebuild base image
+make python-linux      # uses base image + cargo cache volumes
+```
+
+`LINUX_PLATFORM=linux/arm64 make linux-baseimage` then `make python-linux` for ARM64 Linux wheels.
 
 Wheels are built with `auditwheel = "skip"` so maturin does not bundle system OpenCV dylibs. At runtime you need system OpenCV 4 installed (`libopencv-dev` on Debian/Ubuntu, Homebrew `opencv` on macOS).
 

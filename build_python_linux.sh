@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build nbis-python wheel for Linux (Ubuntu 24.04) via Docker.
+# Build nbis-python wheel for Linux using the prebuilt Docker base image.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -11,11 +11,17 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 PLATFORM="${LINUX_PLATFORM:-linux/amd64}"
-IMAGE="${LINUX_IMAGE:-ubuntu:24.04}"
+IMAGE="${NBIS_LINUX_BUILDER_IMAGE:-nbis-rs-linux-builder:24.04}"
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "Base image $IMAGE not found; building ..."
+  LINUX_PLATFORM="$PLATFORM" NBIS_LINUX_BUILDER_IMAGE="$IMAGE" \
+    bash "$ROOT/scripts/build-linux-baseimage.sh"
+fi
 
 mkdir -p "$ROOT/dist/linux"
 
-echo "Building Linux wheel in $IMAGE ($PLATFORM) ..."
+echo "Building Linux wheel ($IMAGE, $PLATFORM) ..."
 
 docker run --rm \
   --platform "$PLATFORM" \

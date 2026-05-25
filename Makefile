@@ -1,4 +1,4 @@
-.PHONY: build build-release test python python-linux publish clean help install-linux install-macos
+.PHONY: build build-release test python python-linux linux-baseimage publish clean help install-linux install-macos
 
 help:
 	@echo "NBIS-rs"
@@ -8,7 +8,8 @@ help:
 	@echo "  make build-release   Release build"
 	@echo "  make test            Run tests"
 	@echo "  make python          Build nbis-python wheel (native OS)"
-	@echo "  make python-linux    Build nbis-python wheel (Ubuntu via Docker)"
+	@echo "  make linux-baseimage Build/rebuild Docker image for python-linux"
+	@echo "  make python-linux    Build nbis-python wheel (Docker base image)"
 	@echo "  make publish         Upload dist/nbis_python-*.whl to PyPI"
 	@echo "  make clean           Remove build artifacts"
 
@@ -32,6 +33,10 @@ test:
 python:
 	@chmod +x build_python.sh scripts/*.sh patch_maturin_wheel.sh 2>/dev/null || true
 	./build_python.sh
+
+linux-baseimage:
+	@chmod +x scripts/build-linux-baseimage.sh 2>/dev/null || true
+	./scripts/build-linux-baseimage.sh
 
 python-linux:
 	@chmod +x build_python_linux.sh scripts/*.sh patch_maturin_wheel.sh 2>/dev/null || true
