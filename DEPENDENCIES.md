@@ -1,7 +1,5 @@
 # Build dependencies
 
-System libraries are used where possible. Only a minimal NBIS subset, NFIQ2, FingerJet FX, and digestpp ship under `ext/`.
-
 ## Required
 
 | Dependency | Linux (Debian/Ubuntu) | macOS (Homebrew) |
