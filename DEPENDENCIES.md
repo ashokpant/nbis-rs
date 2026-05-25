@@ -35,14 +35,14 @@ Linux cross-build uses `ubuntu:24.04` (builds in a temporary `dist/linux/`, then
 
 Wheels are built with `auditwheel = "skip"` so maturin does not bundle system OpenCV dylibs. At runtime you need system OpenCV 4 installed (`libopencv-dev` on Debian/Ubuntu, Homebrew `opencv` on macOS).
 
-### Publish to PyPI (local only)
+### Publish to PyPI
 
 ```bash
 make python          # and/or make python-linux
 make publish         # twine upload (uses .venv from make python)
 ```
 
-**GitHub Actions:** [`ci.yml`](.github/workflows/ci.yml) (CI), [`release.yml`](.github/workflows/release.yml) (tag → GitHub Release with wheel assets; no PyPI).
+**GitHub Actions:** [`ci.yml`](.github/workflows/ci.yml) (CI), [`release.yml`](.github/workflows/release.yml)
 
 ## macOS troubleshooting
 

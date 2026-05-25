@@ -756,7 +756,7 @@ dependencies = [
 
 [[package]]
 name = "nbis-rs"
-version = "0.1.4"
+version = "0.1.7"
 dependencies = [
  "cc",
  "cmake",
