@@ -231,7 +231,8 @@ pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Result<Vec<u8>, NbisError
 ///
 /// If the template is invalid or cannot be parsed, returns an [`NbisError`].
 pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
-    if template_bytes.len() < 28 {
+    const ISO_HEADER_LENGTH: usize = 26;
+    if template_bytes.len() < ISO_HEADER_LENGTH {
         return Err(NbisError::InvalidTemplate(
             "ISO template too short".to_string(),
         ));
