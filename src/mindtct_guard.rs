@@ -7,8 +7,6 @@ use std::{
 
 use crate::ffi_nbis::{free, free_minutiae, MINUTIAE};
 
-use std::os::raw::c_void;
-
 /// Owns all heap pointers returned by `get_minutiae` until this value is dropped.
 pub(crate) struct MindtctOutputs {
     pub ominutiae: *mut MINUTIAE,

@@ -482,7 +482,7 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_roi() != 49809:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_minutiae_to_iso_19794_2_2005() != 19032:
+    if lib.uniffi_nbis_checksum_method_minutiae_to_iso_19794_2_2005() != 40326:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_annotate_minutiae() != 59346:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -1278,10 +1278,6 @@ class _UniffiConverterTypeNbisExtractorSettings(_UniffiConverterRustBuffer):
 
 
 class Nfiq2Result:
-    """
-    Safe Rust view of the results
-    """
-
     score: "int"
     actionable: "typing.List[Nfiq2Value]"
     features: "typing.List[Nfiq2Value]"
@@ -1678,6 +1674,28 @@ class NbisError:  # type: ignore
         def __repr__(self):
             return "NbisError.Nfiq2ComputeFailed({})".format(str(self))
     _UniffiTempNbisError.Nfiq2ComputeFailed = Nfiq2ComputeFailed # type: ignore
+    class InvalidMinutiaeData(_UniffiTempNbisError):
+        def __init__(self):
+            pass
+
+        def __repr__(self):
+            return "NbisError.InvalidMinutiaeData({})".format(str(self))
+    _UniffiTempNbisError.InvalidMinutiaeData = InvalidMinutiaeData # type: ignore
+    class CoordinateOutOfRange(_UniffiTempNbisError):
+        def __init__(self, *values):
+            if len(values) != 1:
+                raise TypeError(f"Expected 1 arguments, found {len(values)}")
+            if not isinstance(values[0], str):
+                raise TypeError(f"unexpected type for tuple element 0 - expected 'str', got '{type(values[0])}'")
+            super().__init__(", ".join(map(repr, values)))
+            self._values = values
+
+        def __getitem__(self, index):
+            return self._values[index]
+
+        def __repr__(self):
+            return "NbisError.CoordinateOutOfRange({})".format(str(self))
+    _UniffiTempNbisError.CoordinateOutOfRange = CoordinateOutOfRange # type: ignore
 
 NbisError = _UniffiTempNbisError # type: ignore
 del _UniffiTempNbisError
@@ -1720,6 +1738,13 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
             return NbisError.Nfiq2ComputeFailed(
                 _UniffiConverterInt32.read(buf),
             )
+        if variant == 10:
+            return NbisError.InvalidMinutiaeData(
+            )
+        if variant == 11:
+            return NbisError.CoordinateOutOfRange(
+                _UniffiConverterString.read(buf),
+            )
         raise InternalError("Raw enum value doesn't match any cases")
 
     @staticmethod
@@ -1748,6 +1773,11 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
         if isinstance(value, NbisError.Nfiq2ComputeFailed):
             _UniffiConverterInt32.check_lower(value._values[0])
             return
+        if isinstance(value, NbisError.InvalidMinutiaeData):
+            return
+        if isinstance(value, NbisError.CoordinateOutOfRange):
+            _UniffiConverterString.check_lower(value._values[0])
+            return
 
     @staticmethod
     def write(value, buf):
@@ -1775,6 +1805,11 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
         if isinstance(value, NbisError.Nfiq2ComputeFailed):
             buf.write_i32(9)
             _UniffiConverterInt32.write(value._values[0], buf)
+        if isinstance(value, NbisError.InvalidMinutiaeData):
+            buf.write_i32(10)
+        if isinstance(value, NbisError.CoordinateOutOfRange):
+            buf.write_i32(11)
+            _UniffiConverterString.write(value._values[0], buf)
 
 
 
@@ -2166,7 +2201,7 @@ class Minutiae():
 
     def to_iso_19794_2_2005(self, ) -> "bytes":
         return _UniffiConverterBytes.lift(
-            _uniffi_rust_call(_UniffiLib.uniffi_nbis_fn_method_minutiae_to_iso_19794_2_2005,self._uniffi_clone_pointer(),)
+            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_minutiae_to_iso_19794_2_2005,self._uniffi_clone_pointer(),)
         )
 
 
@@ -2339,14 +2374,14 @@ class _UniffiConverterTypeNbisExtractor:
         buf.write_u64(cls.lower(value))
 class Nfiq2Protocol(typing.Protocol):
     """
-    The high‐level Rust handle
+    Handle to one NFIQ2 C++ model instance. Not `Clone` — each handle owns one `nfiq2wrapper_destroy`.
     """
 
     pass
 # Nfiq2 is a Rust-only trait - it's a wrapper around a Rust implementation.
 class Nfiq2():
     """
-    The high‐level Rust handle
+    Handle to one NFIQ2 C++ model instance. Not `Clone` — each handle owns one `nfiq2wrapper_destroy`.
     """
 
     _pointer: ctypes.c_void_p

@@ -1,4 +1,5 @@
 /// Represents the result of the SIVV computation.
+#[allow(dead_code)] // all fields parsed from SIVV CSV; only subset used in `is_fingerprint`
 pub(crate) struct SIVVResult {
     /// Index of the largest peak-valley pair (1-based)
     pub(crate) largest_pvp_index: i32,

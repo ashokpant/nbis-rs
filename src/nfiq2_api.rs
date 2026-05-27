@@ -50,6 +50,7 @@ pub fn new_nfiq2() -> Result<Nfiq2, NbisError> {
 
 impl Nfiq2 {
     /// Compute quality from encoded image bytes (PNG/JPEG/…).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn compute(&self, image_bytes: &[u8]) -> Result<Nfiq2Result, NbisError> {
         let image =
             image::load_from_memory(image_bytes).map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?;
