@@ -8,6 +8,20 @@ struct Nfiq2Wrapper {
     NFIQ2::Algorithm model;
 };
 
+namespace {
+
+void free_string_array(const char** ids, uint32_t count) {
+    if (!ids) {
+        return;
+    }
+    for (uint32_t i = 0; i < count; ++i) {
+        std::free(const_cast<char*>(ids[i]));
+    }
+    std::free(const_cast<char**>(ids));
+}
+
+} // namespace
+
 extern "C" {
 
 Nfiq2Wrapper* nfiq2wrapper_create() {
@@ -19,7 +33,9 @@ Nfiq2Wrapper* nfiq2wrapper_create() {
 }
 
 void nfiq2wrapper_destroy(Nfiq2Wrapper* ctx) {
-    delete ctx;
+    if (ctx) {
+        delete ctx;
+    }
 }
 
 int nfiq2wrapper_compute(Nfiq2Wrapper*    ctx,
@@ -30,70 +46,89 @@ int nfiq2wrapper_compute(Nfiq2Wrapper*    ctx,
                          uint16_t         ppi,
                          nfiq2_results_t* out)
 {
-    if (!ctx || !data || !out || size != cols * rows) {
+    if (!ctx || !data || !out || size != cols * rows || cols == 0 || rows == 0) {
         return 1;
     }
 
+    std::memset(out, 0, sizeof(*out));
+
     try {
-        // build the image data
         NFIQ2::FingerprintImageData img(data, size, cols, rows, 0 /*dpi units*/, ppi);
 
-        // native measures
         auto algos = NFIQ2::QualityMeasures::computeNativeQualityMeasureAlgorithms(img);
 
-        // unified score (reuse the same model each call!)
         out->score = ctx->model.computeUnifiedQualityScore(img);
 
-        // actionable feedback
         auto act_ids = NFIQ2::QualityMeasures::getActionableQualityFeedbackIDs();
         auto act_map = NFIQ2::QualityMeasures::getActionableQualityFeedback(algos);
 
-        out->actionable_count  = static_cast<uint32_t>(act_ids.size());
-        out->actionable_ids    = (const char**)std::malloc(sizeof(char*) * act_ids.size());
-        out->actionable_values = (double*)     std::malloc(sizeof(double) * act_ids.size());
-        for (size_t i = 0; i < act_ids.size(); ++i) {
-            const auto& id = act_ids[i];
-            char* copy = (char*)std::malloc(id.size()+1);
-            std::memcpy(copy, id.c_str(), id.size()+1);
-            out->actionable_ids[i]    = copy;
-            out->actionable_values[i] = act_map.at(id);
+        const auto act_n = static_cast<uint32_t>(act_ids.size());
+        out->actionable_count = act_n;
+        if (act_n > 0) {
+            out->actionable_ids =
+                static_cast<const char**>(std::malloc(sizeof(char*) * act_n));
+            out->actionable_values =
+                static_cast<double*>(std::malloc(sizeof(double) * act_n));
+            if (!out->actionable_ids || !out->actionable_values) {
+                nfiq2wrapper_free_results(out);
+                return 2;
+            }
+            for (uint32_t i = 0; i < act_n; ++i) {
+                const auto& id = act_ids[i];
+                char* copy = static_cast<char*>(std::malloc(id.size() + 1));
+                if (!copy) {
+                    nfiq2wrapper_free_results(out);
+                    return 2;
+                }
+                std::memcpy(copy, id.c_str(), id.size() + 1);
+                out->actionable_ids[i] = copy;
+                out->actionable_values[i] = act_map.at(id);
+            }
         }
 
-        // native features
         auto feat_ids = NFIQ2::QualityMeasures::getNativeQualityMeasureIDs();
         auto feat_map = NFIQ2::QualityMeasures::getNativeQualityMeasures(algos);
 
-        out->feature_count  = static_cast<uint32_t>(feat_ids.size());
-        out->feature_ids    = (const char**)std::malloc(sizeof(char*) * feat_ids.size());
-        out->feature_values = (double*)     std::malloc(sizeof(double) * feat_ids.size());
-        for (size_t i = 0; i < feat_ids.size(); ++i) {
-            const auto& id = feat_ids[i];
-            char* copy = (char*)std::malloc(id.size()+1);
-            std::memcpy(copy, id.c_str(), id.size()+1);
-            out->feature_ids[i]    = copy;
-            out->feature_values[i] = feat_map.at(id);
+        const auto feat_n = static_cast<uint32_t>(feat_ids.size());
+        out->feature_count = feat_n;
+        if (feat_n > 0) {
+            out->feature_ids =
+                static_cast<const char**>(std::malloc(sizeof(char*) * feat_n));
+            out->feature_values =
+                static_cast<double*>(std::malloc(sizeof(double) * feat_n));
+            if (!out->feature_ids || !out->feature_values) {
+                nfiq2wrapper_free_results(out);
+                return 2;
+            }
+            for (uint32_t i = 0; i < feat_n; ++i) {
+                const auto& id = feat_ids[i];
+                char* copy = static_cast<char*>(std::malloc(id.size() + 1));
+                if (!copy) {
+                    nfiq2wrapper_free_results(out);
+                    return 2;
+                }
+                std::memcpy(copy, id.c_str(), id.size() + 1);
+                out->feature_ids[i] = copy;
+                out->feature_values[i] = feat_map.at(id);
+            }
         }
 
         return 0;
-    }
-    catch (...) {
+    } catch (...) {
+        nfiq2wrapper_free_results(out);
         return 2;
     }
 }
 
 void nfiq2wrapper_free_results(nfiq2_results_t* out) {
-    if (!out) return;
-
-    for (uint32_t i = 0; i < out->actionable_count; ++i) {
-        std::free((void*)out->actionable_ids[i]);
+    if (!out) {
+        return;
     }
-    std::free(out->actionable_ids);
+
+    free_string_array(out->actionable_ids, out->actionable_count);
     std::free(out->actionable_values);
 
-    for (uint32_t i = 0; i < out->feature_count; ++i) {
-        std::free((void*)out->feature_ids[i]);
-    }
-    std::free(out->feature_ids);
+    free_string_array(out->feature_ids, out->feature_count);
     std::free(out->feature_values);
 
     std::memset(out, 0, sizeof(*out));

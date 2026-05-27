@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Next we will demonstrate conversion to ISO/IEC 19794-2:2005 format
     // and back to a `Minutiae` object.
     // First, convert the minutiae to ISO template bytes
-    let iso_template: Vec<u8> = minutiae_1.to_iso_19794_2_2005();              
+    let iso_template: Vec<u8> = minutiae_1.to_iso_19794_2_2005()?;              
     // And load it back
     let minutiae_from_iso = extractor.load_iso_19794_2_2005(&iso_template)?;
     // Compare the original minutiae with the one loaded from ISO template
@@ -166,7 +166,7 @@ score = minutiae_2.compare(minutiae_3)
 assert score > 50, "Expected a high similarity score between p1_2 and p1_3"
 
 # Convert minutiae to ISO/IEC 19794-2:2005 format
-iso_template = minutiae_1.to_iso_19794_2_2005()
+iso_template = minutiae_1.to_iso_19794_2_2005()?
 # Load it back
 minutiae_from_iso = extractor.load_iso_19794_2_2005(iso_template)
 # Compare the original minutiae with the one loaded from ISO template

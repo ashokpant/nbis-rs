@@ -11,6 +11,7 @@ pub(crate) mod ffi_nbis;
 mod ffi_nfiq2;
 mod imutils;
 mod minutia;
+mod mindtct_guard;
 mod minutiae;
 mod nfiq2_api;
 mod sivv;

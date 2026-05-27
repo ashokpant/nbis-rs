@@ -38,16 +38,22 @@ pub(crate) fn encode_iso_angle(angle_deg: f64) -> u8 {
 ///
 /// Returns `[u8; 6]` matching the original Python `byte_list`.
 #[inline]
-pub(crate) fn encode_minutia(m: &Minutia) -> [u8; 6] {
+pub(crate) fn encode_minutia(m: &Minutia) -> Result<[u8; 6], NbisError> {
+    if m.x < 0 || m.y < 0 || m.x > i32::from(u16::MAX) || m.y > i32::from(u16::MAX) {
+        return Err(NbisError::CoordinateOutOfRange(format!(
+            "x={}, y={}",
+            m.x, m.y
+        )));
+    }
     let min_type = if m.kind == MinutiaKind::Bifurcation {
         2
     } else {
         1
-    }; // 0x02 = bifurcation, 0x01 = ridge ending
+    };
     let angle = encode_iso_angle(m.direction as f64);
-    let quality = (m.reliability * 63.0).min(63.0) as u8; // 0-63 range
-    let x = m.x;
-    let y = m.y;
+    let quality = (m.reliability * 63.0).min(63.0) as u8;
+    let x = m.x as u16;
+    let y = m.y as u16;
     let mut bytes = [0u8; 6];
 
     bytes[1] = (x & 0x00FF) as u8; // low-byte of X
@@ -55,9 +61,9 @@ pub(crate) fn encode_minutia(m: &Minutia) -> [u8; 6] {
     bytes[2] = (y >> 8) as u8; // high-byte of Y
     bytes[3] = (y & 0x00FF) as u8; // low-byte of Y
     bytes[4] = angle; // orientation (ISO unit)
-    bytes[5] = quality; // quality score
+    bytes[5] = quality;
 
-    bytes
+    Ok(bytes)
 }
 
 fn nist_xyt(minutiae: &Minutiae, minutia: &Minutia) -> (i32, i32, i32) {
@@ -147,7 +153,7 @@ pub(crate) fn decode_minutia(bytes: &[u8; 6]) -> Minutia {
 /// * `minutiae_obj` — the `Minutiae` object to convert.
 ///
 /// Returns a `Vec<u8>` containing the ISO template bytes.
-pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Vec<u8> {
+pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Result<Vec<u8>, NbisError> {
     // The maximum number of minutiae is DEFAULT_BOZORTH_MINUTIAE, so we can use u8 for the count.
     // therefore, first filter the top DEFAULT_BOZORTH_MINUTIAE minutiae by quality.
     let mut minutiae = minutiae_obj.inner.clone();
@@ -207,14 +213,13 @@ pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Vec<u8> {
     buf.extend_from_slice(&num_minutiae.to_be_bytes());
 
     for m in minutiae.iter() {
-        // Encode each minutia into 6 bytes
-        let encoded = encode_minutia(m);
+        let encoded = encode_minutia(m)?;
         buf.extend_from_slice(&encoded);
     }
 
     assert_eq!(buf.len(), total_bytes);
 
-    buf
+    Ok(buf)
 }
 
 /// Loads an ISO/IEC 19794-2:2005 fingerprint template from bytes.
@@ -255,7 +260,23 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
     let finger_quality = template_bytes[20];
 
     let num_minutiae = template_bytes[25] as usize;
-    let minutiae_start = 26;
+    let minutiae_start: usize = 26;
+
+    const MAX_TEMPLATE_MINUTIAE: usize = 512;
+    if num_minutiae > MAX_TEMPLATE_MINUTIAE {
+        return Err(NbisError::InvalidTemplate(format!(
+            "too many minutiae: {num_minutiae}"
+        )));
+    }
+    let minutiae_bytes = num_minutiae
+        .checked_mul(6)
+        .and_then(|n| minutiae_start.checked_add(n))
+        .ok_or_else(|| NbisError::InvalidTemplate("minutiae size overflow".into()))?;
+    if minutiae_bytes > template_bytes.len() {
+        return Err(NbisError::InvalidTemplate(
+            "minutiae data exceeds template".into(),
+        ));
+    }
 
     let mut minutiae = Vec::with_capacity(num_minutiae);
     for i in 0..num_minutiae {

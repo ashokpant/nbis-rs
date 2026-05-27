@@ -45,7 +45,9 @@ impl Minutiae {
     /// A higher score indicates more similarity.
     pub fn compare(&self, other: &Minutiae) -> i32 {
         // Ensure we have a lock to prevent concurrent access issues as Bozorth is not thread-safe.
-        let _lock = BOZORTH_MUTEX.lock().unwrap();
+        let _lock = BOZORTH_MUTEX
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let p = to_nist_xyt_set(self);
         let g = to_nist_xyt_set(other);
         let score = bz_match_score(&p, &g);
@@ -78,7 +80,7 @@ impl Minutiae {
         self.inner.iter().cloned().map(Arc::new).collect()
     }
 
-    pub fn to_iso_19794_2_2005(&self) -> Vec<u8> {
+    pub fn to_iso_19794_2_2005(&self) -> Result<Vec<u8>, crate::NbisError> {
         crate::encoding::to_iso_19794_2_2005(self)
     }
 

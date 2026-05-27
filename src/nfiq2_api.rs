@@ -4,6 +4,8 @@ use std::{
     ptr,
 };
 
+use image::GrayImage;
+
 use crate::{
     ffi_nfiq2::{
         nfiq2wrapper_compute, nfiq2wrapper_create, nfiq2wrapper_destroy, nfiq2wrapper_free_results,
@@ -18,7 +20,6 @@ pub struct Nfiq2Value {
     pub value: f64,
 }
 
-/// Safe Rust view of the results
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct Nfiq2Result {
     pub score: u32,
@@ -26,12 +27,14 @@ pub struct Nfiq2Result {
     pub features: Vec<Nfiq2Value>,
 }
 
-/// The high‐level Rust handle
-#[derive(Debug, Clone, uniffi::Object)]
+/// Handle to one NFIQ2 C++ model instance. Not `Clone` — each handle owns one `nfiq2wrapper_destroy`.
+#[derive(Debug, uniffi::Object)]
 pub struct Nfiq2 {
     ctx: *mut Nfiq2WrapperOpaque,
 }
 
+// Safety: `NbisExtractor` holds `Mutex<Nfiq2>` so `compute` never runs concurrently on one `ctx`.
+// Do not share one `Nfiq2` across threads without external serialization.
 unsafe impl Send for Nfiq2 {}
 unsafe impl Sync for Nfiq2 {}
 
@@ -46,32 +49,32 @@ pub fn new_nfiq2() -> Result<Nfiq2, NbisError> {
 }
 
 impl Nfiq2 {
-    /// Compute quality. Mirrors your C API.
+    /// Compute quality from encoded image bytes (PNG/JPEG/…).
     pub fn compute(&self, image_bytes: &[u8]) -> Result<Nfiq2Result, NbisError> {
+        let image =
+            image::load_from_memory(image_bytes).map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?;
+        self.compute_from_luma(&image.to_luma8())
+    }
+
+    /// Compute quality from an 8-bit grayscale buffer (same pixels as minutiae extraction).
+    pub fn compute_from_luma(&self, gray: &GrayImage) -> Result<Nfiq2Result, NbisError> {
         if self.ctx.is_null() {
             return Err(NbisError::Nfiq2NullContext);
         }
 
-        // load the image from bytes
-        let image =
-            image::load_from_memory(image_bytes).map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?;
+        let (cols, rows) = gray.dimensions();
+        if cols == 0 || rows == 0 {
+            return Err(NbisError::Nfiq2ComputeFailed(-1));
+        }
 
-        // convert to grayscale and get dimensions
-        let image = image.to_luma8();
-
-        let (cols, rows) = image.dimensions();
-        let ppi = 500; // hardcoded PPI, can be adjusted as needed
-
-        // zero the C struct
+        let ppi: u16 = 500;
         let mut raw: Nfiq2ResultsT = unsafe { std::mem::zeroed() };
-
-        let size = image.len() as c_uint;
 
         let rc = unsafe {
             nfiq2wrapper_compute(
                 self.ctx,
-                image.as_ptr(),
-                size as c_uint,
+                gray.as_ptr(),
+                gray.len() as c_uint,
                 cols as c_uint,
                 rows as c_uint,
                 ppi as c_ushort,
@@ -79,64 +82,68 @@ impl Nfiq2 {
             )
         };
         if rc != 0 {
-            // free any partial allocations before returning
             unsafe { nfiq2wrapper_free_results(&mut raw) };
             return Err(NbisError::Nfiq2ComputeFailed(rc));
         }
 
-        // helper to turn C arrays into Vec<(String,f64)>
-        unsafe fn collect_pairs(
-            ids_ptr: *const *const c_char,
-            vals_ptr: *const f64,
-            count: usize,
-        ) -> Result<Vec<Nfiq2Value>, NbisError> {
-            let mut out = Vec::with_capacity(count);
-            let id_slice = unsafe { std::slice::from_raw_parts(ids_ptr, count) };
-            let val_slice = unsafe { std::slice::from_raw_parts(vals_ptr, count) };
-            for i in 0..count {
-                let s = unsafe { CStr::from_ptr(id_slice[i]) }
-                    .to_str()
-                    .map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?
-                    .to_string();
-
-                out.push(Nfiq2Value {
-                    name: s,
-                    value: val_slice[i],
-                });
-            }
-            Ok(out)
-        }
-
-        let actionable_count = raw.actionable_count as usize;
-        let feature_count = raw.feature_count as usize;
-
-        // collect actionable + features
-        let actionable = unsafe {
-            collect_pairs(
-                raw.actionable_ids,
-                raw.actionable_values as *const f64,
-                actionable_count,
-            )?
-        };
-        let features = unsafe {
-            collect_pairs(
-                raw.feature_ids,
-                raw.feature_values as *const f64,
-                feature_count,
-            )?
-        };
-
-        let score = raw.score;
-
-        // free C allocations
+        let result = unsafe { results_from_c(&raw)? };
         unsafe { nfiq2wrapper_free_results(&mut raw) };
-
-        Ok(Nfiq2Result {
-            score,
-            actionable,
-            features,
-        })
+        Ok(result)
     }
+}
+
+unsafe fn collect_pairs(
+    ids_ptr: *const *const c_char,
+    vals_ptr: *const f64,
+    count: usize,
+) -> Result<Vec<Nfiq2Value>, NbisError> {
+    if count == 0 {
+        return Ok(Vec::new());
+    }
+    if ids_ptr.is_null() || vals_ptr.is_null() {
+        return Err(NbisError::Nfiq2ComputeFailed(-1));
+    }
+
+    let id_slice = unsafe { std::slice::from_raw_parts(ids_ptr, count) };
+    let val_slice = unsafe { std::slice::from_raw_parts(vals_ptr, count) };
+
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        let id_ptr = id_slice[i];
+        if id_ptr.is_null() {
+            return Err(NbisError::Nfiq2ComputeFailed(-1));
+        }
+        let s = unsafe { CStr::from_ptr(id_ptr) }
+            .to_str()
+            .map_err(|_| NbisError::Nfiq2ComputeFailed(-1))?
+            .to_string();
+        out.push(Nfiq2Value {
+            name: s,
+            value: val_slice[i],
+        });
+    }
+    Ok(out)
+}
+
+unsafe fn results_from_c(raw: &Nfiq2ResultsT) -> Result<Nfiq2Result, NbisError> {
+    let actionable_count = raw.actionable_count as usize;
+    let feature_count = raw.feature_count as usize;
+
+    let actionable = unsafe {
+        collect_pairs(
+            raw.actionable_ids,
+            raw.actionable_values,
+            actionable_count,
+        )
+    }?;
+    let features =
+        unsafe { collect_pairs(raw.feature_ids, raw.feature_values, feature_count) }?;
+
+    Ok(Nfiq2Result {
+        score: raw.score,
+        actionable,
+        features,
+    })
 }
 
 impl Drop for Nfiq2 {
@@ -154,7 +161,6 @@ mod tests {
 
     #[test]
     fn test_nfiq2() {
-        // construct wrapper
         let nfiq = new_nfiq2().expect("failed to create wrapper");
 
         let expected_scores = vec![54, 45, 53, 52, 57];
@@ -167,13 +173,8 @@ mod tests {
         ];
 
         for (i, img_path) in input_images.iter().enumerate() {
-            // load test image bytes
             let img_bytes = std::fs::read(img_path).expect("failed to read test image");
-
-            // call compute
             let res = nfiq.compute(&img_bytes).expect("compute failed");
-
-            // check score
             assert_eq!(res.score, expected_scores[i]);
         }
     }

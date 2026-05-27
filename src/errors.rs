@@ -22,4 +22,10 @@ pub enum NbisError {
 
     #[error("NFIQ2 computation failed with error code: {0}")]
     Nfiq2ComputeFailed(i32),
+
+    #[error("NBIS returned invalid minutiae data")]
+    InvalidMinutiaeData,
+
+    #[error("Coordinate out of ISO range: {0}")]
+    CoordinateOutOfRange(String),
 }

@@ -58,6 +58,14 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
 
 **Option C — distro packages** only if they ship OpenCV 4.13 (most `python:3.13-slim` images today ship 4.10 and will **not** work with wheels built against 4.13).
 
+**Do not** set `LD_LIBRARY_PATH=/usr/local/lib` globally when the app also uses `opencv-python` (`import cv2`). That forces `cv2` to load system OpenCV and commonly causes **segmentation faults**. Instead, install OpenCV 4.13 under `/usr/local` and set RPATH on `libnbis.so` only:
+
+```bash
+patchelf --set-rpath /usr/local/lib "$(python -c 'import pathlib, nbis.nbis.nbis as m; print(pathlib.Path(m.__file__).with_name("libnbis.so"))')"
+```
+
+**Host compatibility:** Linux wheels are tagged `manylinux_2_28` (glibc ≥ 2.28). Ubuntu **24.04** hosts and containers are fine; the app runs in the container’s userspace (e.g. `python:3.13-slim`), not the host’s Ubuntu 24.04 libraries.
+
 If import fails, inspect the wheel’s native library:
 
 ```bash
