@@ -12,6 +12,7 @@ use crate::{
     imutils::{draw_arrow_with_head, png_bytes_from_rgb},
     mindtct_guard::MindtctOutputs,
     minutia::{Minutia, MinutiaKind},
+    native_guard::with_native_lock,
     nfiq2_api::{new_nfiq2, Nfiq2},
     sivv::{find_fingerprint_center, is_fingerprint, sivv},
     structs::NbisExtractorSettings,
@@ -133,6 +134,10 @@ impl NbisExtractor {
     }
 
     pub fn extract_minutiae(&self, image_bytes: &[u8]) -> Result<Minutiae, NbisError> {
+        with_native_lock(|| self.extract_minutiae_unlocked(image_bytes))
+    }
+
+    fn extract_minutiae_unlocked(&self, image_bytes: &[u8]) -> Result<Minutiae, NbisError> {
         let ppi = self.settings.ppi.unwrap_or(500.0);
 
         let image = image::load_from_memory(image_bytes).map_err(|_| NbisError::ImageLoadError)?;
@@ -316,6 +321,36 @@ mod tests {
 
     use super::*;
     use std::fs;
+
+    #[test]
+    fn concurrent_extract_is_safe() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let image = fs::read("test_data/p1/p1_1.png").unwrap();
+        let extractor = Arc::new(
+            new_nbis_extractor(NbisExtractorSettings {
+                compute_nfiq2: false,
+                ..NbisExtractorSettings::default()
+            })
+            .unwrap(),
+        );
+
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                let ex = Arc::clone(&extractor);
+                let bytes = image.clone();
+                thread::spawn(move || {
+                    let tpl = ex.extract_minutiae(&bytes).unwrap();
+                    assert!(!tpl.inner.is_empty());
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().expect("extract thread panicked");
+        }
+    }
 
     #[test]
     fn test_match() {

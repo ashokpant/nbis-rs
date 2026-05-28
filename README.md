@@ -27,6 +27,20 @@ cargo test
 make python   # optional Python wheel
 ```
 
+## Python package (`nbis-python` on PyPI)
+
+```bash
+pip install "nbis-python>=0.1.14"
+```
+
+**Maintainers:** build macOS + Linux wheels and upload — see [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
+```bash
+make wheels-all
+make publish-check
+make publish
+```
+
 ## Installation (Rust)
 
 To use NBIS-rs, add the following to your `Cargo.toml`:
@@ -119,11 +133,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ## Installation (Python)
-To install the Python bindings, you can use pip:
 
 ```bash
-pip install nbis-python
+pip install "nbis-python>=0.1.14"
 ```
+
+See [docs/PUBLISHING.md](docs/PUBLISHING.md) for PyPI release steps.
 
 ## Usage (Python)
 

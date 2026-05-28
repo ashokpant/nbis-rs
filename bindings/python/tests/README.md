@@ -4,7 +4,7 @@
 First generate the python wheels by running the following command in the root directory:
 
 ```bash
-./build_python.sh
+make python
 ```
 
 This will create a virtual environment `.venv` and the python wheel in the `dist` folder.

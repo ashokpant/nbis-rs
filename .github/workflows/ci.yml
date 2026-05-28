@@ -100,7 +100,7 @@ jobs:
           key: opencv-4.13.0-linux-${{ runner.arch }}
       - name: Install native dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo bash ./scripts/install-opencv-4.13-linux.sh
+        run: sudo bash ./scripts/install-opencv-4.13-linux.sh && sudo apt-get update && sudo apt-get install -y patchelf
       - name: Install native dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install opencv pkg-config cmake
@@ -108,8 +108,6 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@master
-        with:
-          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Build nbis-python wheel
         env:
@@ -118,12 +116,12 @@ jobs:
           LD_LIBRARY_PATH: /usr/local/lib
         run: |
           python -m pip install "maturin>=1.5,<2.0" twine
-          maturin build --release --manifest-path Cargo.toml --out dist --strip --locked --auditwheel=skip
-          bash ./patch_maturin_wheel.sh
-          twine check dist/*.whl
+          chmod +x scripts/*.sh build_python_linux.sh
+          if [ "$(uname -s)" = "Darwin" ]; then
+            export OPENCV_DIR="$(brew --prefix opencv)/lib/cmake/opencv4"
+          fi
+          NBIS_SKIP_HOST_DEPS=1 bash ./scripts/build-python-wheel.sh
       - name: Run pytest
-        env:
-          LD_LIBRARY_PATH: /usr/local/lib
         run: |
           python -m pip install dist/*.whl
           python -m pip install -r bindings/python/tests/requirements.txt

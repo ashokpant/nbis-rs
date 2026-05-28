@@ -1,4 +1,4 @@
-.PHONY: build build-release test python python-linux linux-baseimage publish clean help install-linux install-macos
+.PHONY: build build-release test python python-linux linux-baseimage wheels-all publish-check publish clean help install-linux install-macos
 
 help:
 	@echo "NBIS-rs"
@@ -7,48 +7,59 @@ help:
 	@echo "  make build           Debug build"
 	@echo "  make build-release   Release build"
 	@echo "  make test            Run tests"
-	@echo "  make python          Build wheel + sync _uniffi_stubs (macOS → Linux)"
+	@echo "  make python          Build host wheel"
 	@echo "  make linux-baseimage Build/rebuild Docker image for python-linux"
-	@echo "  make python-linux    Build nbis-python wheel (Docker base image)"
-	@echo "  make publish         Upload dist/nbis_python-*.whl to PyPI"
+	@echo "  make python-linux    Build Linux wheel (Docker; OpenCV bundled)"
+	@echo "  make wheels-all      Build macOS + Linux wheels for PyPI"
+	@echo "  make publish-check   Verify dist/ wheels (twine check)"
+	@echo "  make publish         Upload dist/*.whl to PyPI (see docs/PUBLISHING.md)"
 	@echo "  make clean           Remove build artifacts"
 
 install-linux:
-	@chmod +x scripts/install-deps-linux.sh 2>/dev/null || true
 	./scripts/install-deps-linux.sh
 
 install-macos:
-	@chmod +x scripts/install-deps-macos.sh 2>/dev/null || true
 	./scripts/install-deps-macos.sh
 
 build:
 	cargo build
-	@chmod +x scripts/sync_uniffi_stub.sh 2>/dev/null || true
-	@./scripts/sync_uniffi_stub.sh --if-present
+	./scripts/sync_uniffi_stub.sh --if-present
 
 build-release:
 	cargo build --release --locked
-	@chmod +x scripts/sync_uniffi_stub.sh 2>/dev/null || true
-	@./scripts/sync_uniffi_stub.sh --if-present
+	./scripts/sync_uniffi_stub.sh --if-present
 
 test:
 	cargo test --verbose
 
 python:
-	@chmod +x build_python.sh scripts/*.sh patch_maturin_wheel.sh 2>/dev/null || true
-	./build_python.sh
+	@test -d .venv || python3 -m venv .venv
+	. .venv/bin/activate && pip install -q --upgrade pip "maturin>=1.5,<2.0" twine
+	NBIS_PATH="$(PWD)/.venv/bin:$$PATH" ./scripts/build-python-wheel.sh
 
 linux-baseimage:
-	@chmod +x scripts/build-linux-baseimage.sh 2>/dev/null || true
 	./scripts/build-linux-baseimage.sh
 
 python-linux:
-	@chmod +x build_python_linux.sh scripts/*.sh patch_maturin_wheel.sh 2>/dev/null || true
 	./build_python_linux.sh
 
-publish:
-	@if [ ! -d .venv ]; then echo "Run make python first"; exit 1; fi
-	.venv/bin/twine upload --non-interactive --skip-existing dist/nbis_python*.whl
+wheels-all: python python-linux
+	./scripts/verify-dist-for-pypi.sh
+
+publish-check:
+	./scripts/verify-dist-for-pypi.sh
+	@if [ -x .venv/bin/twine ]; then \
+		.venv/bin/twine check dist/nbis_python*.whl; \
+	else \
+		twine check dist/nbis_python*.whl; \
+	fi
+
+publish: publish-check
+	@if [ -x .venv/bin/twine ]; then \
+		.venv/bin/twine upload --non-interactive dist/nbis_python*.whl; \
+	else \
+		twine upload --non-interactive dist/nbis_python*.whl; \
+	fi
 
 clean:
 	cargo clean

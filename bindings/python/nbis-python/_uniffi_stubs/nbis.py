@@ -492,6 +492,8 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file() != 23955:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked() != 21429:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005() != 25457:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_settings() != 20186:
@@ -712,6 +714,12 @@ _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_void_p
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked.restype = ctypes.c_void_p
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
     ctypes.c_void_p,
     _UniffiRustBuffer,
@@ -1054,6 +1062,9 @@ _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae.restype = 
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_uint16
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked.argtypes = (
+)
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.restype = ctypes.c_uint16
@@ -2245,6 +2256,8 @@ class NbisExtractorProtocol(typing.Protocol):
         raise NotImplementedError
     def extract_minutiae_from_image_file(self, file_path: "str"):
         raise NotImplementedError
+    def extract_minutiae_unlocked(self, image_bytes: "bytes"):
+        raise NotImplementedError
     def load_iso_19794_2_2005(self, template_bytes: "bytes"):
         raise NotImplementedError
     def settings(self, ):
@@ -2317,6 +2330,18 @@ class NbisExtractor():
         return _UniffiConverterTypeMinutiae.lift(
             _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file,self._uniffi_clone_pointer(),
         _UniffiConverterString.lower(file_path))
+        )
+
+
+
+
+
+    def extract_minutiae_unlocked(self, image_bytes: "bytes") -> "Minutiae":
+        _UniffiConverterBytes.check_lower(image_bytes)
+        
+        return _UniffiConverterTypeMinutiae.lift(
+            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked,self._uniffi_clone_pointer(),
+        _UniffiConverterBytes.lower(image_bytes))
         )
 
 

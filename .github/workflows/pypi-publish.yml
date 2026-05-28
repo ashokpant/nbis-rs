@@ -1,6 +1,7 @@
-# Tag v*.*.* → build wheels and attach to GitHub Release (no PyPI; publish locally with make publish).
+# Upload nbis-python wheels to PyPI when a version tag is pushed.
+# Requires repository secret: PYPI_API_TOKEN
 
-name: Release
+name: Publish to PyPI
 
 on:
   push:
@@ -17,8 +18,8 @@ env:
   LD_LIBRARY_PATH: /usr/local/lib
 
 jobs:
-  wheels:
-    name: Build (${{ matrix.os }})
+  build-wheels:
+    name: Wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -47,7 +48,7 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@master
       - uses: Swatinem/rust-cache@v2
-      - name: Build nbis-python wheel
+      - name: Build wheel
         run: |
           python -m pip install "maturin>=1.5,<2.0" twine
           chmod +x scripts/*.sh
@@ -57,38 +58,32 @@ jobs:
           NBIS_SKIP_HOST_DEPS=1 bash ./scripts/build-python-wheel.sh
       - uses: actions/upload-artifact@v5
         with:
-          name: wheel-${{ matrix.os }}
-          path: dist/*.whl
+          name: pypi-wheel-${{ matrix.os }}
+          path: dist/nbis_python*.whl
 
-  github-release:
-    name: GitHub Release
-    needs: [wheels]
+  publish-pypi:
+    name: Upload to PyPI
+    needs: [build-wheels]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/nbis-python/
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
       - uses: actions/download-artifact@v5
         with:
           path: dist
-          pattern: wheel-*
+          pattern: pypi-wheel-*
           merge-multiple: true
 
-      - name: Generate release notes
-        run: |
-          prev=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -n "$prev" ]; then
-            git log "${prev}..HEAD" --pretty=format:"%h %s" > /tmp/release-notes.txt
-          else
-            git log -20 --pretty=format:"%h %s" > /tmp/release-notes.txt
-          fi
+      - name: List wheels
+        run: ls -lh dist/
 
-      - uses: softprops/action-gh-release@v3
+      - name: Twine check
+        run: pip install twine && twine check dist/*.whl
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          body_path: /tmp/release-notes.txt
-          files: dist/*.whl
-          draft: false
-          prerelease: false
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true

@@ -1,6 +1,7 @@
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::Arc;
 
 use crate::minutia::Minutia;
+use crate::native_guard::with_native_lock;
 use crate::structs::ROI;
 use crate::Nfiq2Result;
 use crate::{bozorth::bz_match_score, encoding::to_nist_xyt_set};
@@ -32,8 +33,6 @@ impl Minutiae {
     }
 }
 
-static BOZORTH_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
 #[uniffi::export]
 impl Minutiae {
     /// Similarity via Bozorth‑3 (higher = more similar). A score > 50 is a likely match.
@@ -44,31 +43,26 @@ impl Minutiae {
     /// Returns an `i32` score representing the similarity between the two sets of minutiae.
     /// A higher score indicates more similarity.
     pub fn compare(&self, other: &Minutiae) -> i32 {
-        // Ensure we have a lock to prevent concurrent access issues as Bozorth is not thread-safe.
-        let _lock = BOZORTH_MUTEX
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let p = to_nist_xyt_set(self);
-        let g = to_nist_xyt_set(other);
-        let score = bz_match_score(&p, &g);
-        // #define QQ_SIZE 4000
-        // #define QQ_OVERFLOW_SCORE QQ_SIZE
-        // If the score is QQ_SIZE, it indicates an overflow condition.
-        if score == 4000 {
-            0 // Just return 0 for overflow
-        } else {
-            let score_opposite = bz_match_score(&g, &p);
-            if score_opposite == 4000 {
-                0 // Return 0 for overflow in the opposite direction
+        with_native_lock(|| {
+            let p = to_nist_xyt_set(self);
+            let g = to_nist_xyt_set(other);
+            let score = bz_match_score(&p, &g);
+            // #define QQ_SIZE 4000
+            // #define QQ_OVERFLOW_SCORE QQ_SIZE
+            // If the score is QQ_SIZE, it indicates an overflow condition.
+            if score == 4000 {
+                0 // Just return 0 for overflow
             } else {
-                // Return the maximum of the two scores
-                if score > score_opposite {
+                let score_opposite = bz_match_score(&g, &p);
+                if score_opposite == 4000 {
+                    0 // Return 0 for overflow in the opposite direction
+                } else if score > score_opposite {
                     score
                 } else {
                     score_opposite
                 }
             }
-        }
+        })
     }
 
     pub fn quality(&self) -> Nfiq2Result {

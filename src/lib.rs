@@ -13,6 +13,7 @@ mod imutils;
 mod minutia;
 mod mindtct_guard;
 mod minutiae;
+mod native_guard;
 mod nfiq2_api;
 mod sivv;
 mod structs;

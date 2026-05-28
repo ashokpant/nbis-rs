@@ -34,4 +34,4 @@ fi
 echo "Done."
 echo "  OPENCV_DIR=${OPENCV_DIR:-<set manually if needed>}"
 echo "  cargo build --release"
-echo "  make python   # uses maturin --auditwheel=skip"
+echo "  make python"
