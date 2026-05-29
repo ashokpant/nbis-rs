@@ -1,4 +1,4 @@
-.PHONY: build build-release test python python-linux linux-baseimage wheels-all publish-check publish clean help install-linux install-macos
+.PHONY: build build-release test python python-linux python-linux-aarch64 linux-baseimage wheels-all publish-check publish clean help install-linux install-macos
 
 help:
 	@echo "NBIS-rs"
@@ -9,8 +9,9 @@ help:
 	@echo "  make test            Run tests"
 	@echo "  make python          Build host wheel"
 	@echo "  make linux-baseimage Build/rebuild Docker image for python-linux"
-	@echo "  make python-linux    Build Linux wheel (Docker; OpenCV bundled)"
-	@echo "  make wheels-all      Build macOS + Linux wheels for PyPI"
+	@echo "  make python-linux           Build Linux x86_64 wheel (Docker; OpenCV bundled)"
+	@echo "  make python-linux-aarch64   Build Linux aarch64 wheel (Docker; OpenCV bundled)"
+	@echo "  make wheels-all             Build macOS + Linux x86_64 + Linux aarch64 wheels"
 	@echo "  make publish-check   Verify dist/ wheels (twine check)"
 	@echo "  make publish         Upload dist/*.whl to PyPI (see docs/PUBLISHING.md)"
 	@echo "  make clean           Remove build artifacts"
@@ -41,9 +42,12 @@ linux-baseimage:
 	./scripts/build-linux-baseimage.sh
 
 python-linux:
-	./build_python_linux.sh
+	LINUX_PLATFORM=linux/amd64 ./build_python_linux.sh
 
-wheels-all: python python-linux
+python-linux-aarch64:
+	LINUX_PLATFORM=linux/arm64 ./build_python_linux.sh
+
+wheels-all: python python-linux python-linux-aarch64
 	./scripts/verify-dist-for-pypi.sh
 
 publish-check:
@@ -63,7 +67,7 @@ publish: publish-check
 
 clean:
 	cargo clean
-	rm -rf dist/ dist/linux .venv/ target/linux-docker
+	rm -rf dist/ dist/linux-amd64 dist/linux-arm64 .venv/ target/linux-docker-amd64 target/linux-docker-arm64
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 .SILENT: help

@@ -6,7 +6,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PLATFORM="${LINUX_PLATFORM:-linux/amd64}"
-IMAGE="${NBIS_LINUX_BUILDER_IMAGE:-nbis-rs-linux-builder:24.04}"
+ARCH="${PLATFORM#linux/}"
+IMAGE="${NBIS_LINUX_BUILDER_IMAGE:-nbis-rs-linux-builder:24.04-${ARCH}}"
 
 echo "Building base image $IMAGE ($PLATFORM) ..."
 docker build \
@@ -16,4 +17,4 @@ docker build \
   .
 
 echo "Done: $IMAGE"
-echo "  make python-linux"
+echo "  LINUX_PLATFORM=$PLATFORM make python-linux"

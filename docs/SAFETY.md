@@ -4,7 +4,7 @@
 
 ## Platform
 
-- Linux wheels: `manylinux_2_28_x86_64` (glibc ≥ 2.28). **Ubuntu 24.04** hosts and containers are supported.
+- Linux wheels: `manylinux_2_28_x86_64` and `manylinux_2_28_aarch64` (glibc ≥ 2.28). **Ubuntu 24.04** hosts and containers are supported on both architectures.
 - **Linux wheels (0.1.13+)**: OpenCV **4.13** is vendored in the wheel; `libnbis.so` uses `$ORIGIN` RPATH — no host OpenCV install required.
 - **macOS / custom builds**: OpenCV **4.13** shared libs on the loader path or `libnbis.so` RPATH — see [DEPENDENCIES.md](../DEPENDENCIES.md).
 - Do **not** set global `LD_LIBRARY_PATH` to OpenCV when also using `opencv-python` (`import cv2`).

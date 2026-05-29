@@ -18,12 +18,18 @@ env:
 
 jobs:
   wheels:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            label: linux-x86_64
+          - os: ubuntu-24.04-arm
+            label: linux-aarch64
+          - os: macos-latest
+            label: macos
     steps:
       - uses: actions/checkout@v5
       - name: Cache OpenCV 4.13 (Linux)
@@ -57,7 +63,7 @@ jobs:
           NBIS_SKIP_HOST_DEPS=1 bash ./scripts/build-python-wheel.sh
       - uses: actions/upload-artifact@v5
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ matrix.label }}
           path: dist/*.whl
 
   github-release:

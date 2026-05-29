@@ -79,13 +79,19 @@ jobs:
       - run: cargo test --locked --verbose
 
   python:
-    name: Python wheel (${{ matrix.os }})
+    name: Python wheel (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     needs: [test]
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            label: linux-x86_64
+          - os: ubuntu-24.04-arm
+            label: linux-aarch64
+          - os: macos-latest
+            label: macos
     steps:
       - uses: actions/checkout@v5
       - name: Cache OpenCV 4.13 (Linux)
@@ -128,6 +134,6 @@ jobs:
           cd bindings/python/tests && python -m pytest -v --tb=short
       - uses: actions/upload-artifact@v5
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ matrix.label }}
           path: dist/*.whl
           retention-days: 7

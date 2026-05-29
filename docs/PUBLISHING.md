@@ -24,10 +24,10 @@ export TWINE_PASSWORD=pypi-...
 
 ```bash
 # 1. Bump version in pyproject.toml + Cargo.toml (keep in sync), commit, tag
-#    e.g. 0.1.14 → git tag v0.1.14 && git push origin v0.1.14
+#    e.g. 0.1.15 → git tag v0.1.15 && git push origin v0.1.15
 
-# 2. Build both platform wheels
-make wheels-all          # macOS wheel + Linux wheel (Docker, OpenCV bundled on Linux)
+# 2. Build platform wheels (macOS + Linux x86_64 + Linux aarch64)
+make wheels-all
 
 # 3. Verify artifacts
 make publish-check
@@ -46,25 +46,25 @@ After publish, depend on PyPI only (no path to `../nbis-rs`):
 **pip**
 
 ```bash
-pip install "nbis-python>=0.1.14"
+pip install "nbis-python>=0.1.15"
 ```
 
 **pyproject.toml**
 
 ```toml
 dependencies = [
-    "nbis-python>=0.1.14",
+    "nbis-python>=0.1.15",
 ]
 ```
 
 **uv**
 
 ```toml
-dependencies = ["nbis-python>=0.1.14"]
+dependencies = ["nbis-python>=0.1.15"]
 ```
 
 ```bash
-uv add "nbis-python>=0.1.14"
+uv add "nbis-python>=0.1.15"
 uv sync
 ```
 
@@ -73,16 +73,34 @@ uv sync
 | Platform | Wheel on PyPI | Runtime |
 |----------|----------------|---------|
 | Linux x86_64 (`manylinux_2_28`) | Yes | OpenCV **bundled** in wheel |
+| Linux aarch64 (`manylinux_2_28`) | Yes (≥ 0.1.15) | OpenCV **bundled** in wheel |
 | macOS arm64 / x86_64 | Yes | Needs **Homebrew OpenCV** ≥ 4.13 (`brew install opencv`) |
 
 Linux Docker apps do **not** need `install-opencv-4.13-linux.sh` when using ≥ 0.1.14.
+
+### Linux aarch64 (Graviton, Raspberry Pi 64-bit, etc.)
+
+PyPI wheels for **0.1.14 and earlier** do not include Linux aarch64. Use **≥ 0.1.15**, or build locally on the machine:
+
+```bash
+cd nbis-rs
+make install-linux   # native aarch64 only; installs OpenCV 4.13 to /usr/local
+make python          # produces dist/nbis_python-*-manylinux_*_aarch64.whl
+pip install dist/nbis_python-*-manylinux_*_aarch64.whl
+```
+
+From macOS with Docker (cross-build):
+
+```bash
+make python-linux-aarch64
+```
 
 ### Example: `fingerprintlib` / services
 
 ```toml
 # fingerprintlib/pyproject.toml
 dependencies = [
-    "nbis-python>=0.1.14",
+    "nbis-python>=0.1.15",
     # ...
 ]
 ```
@@ -97,15 +115,15 @@ uv sync
 
 ## Local development before publish
 
-In **fingerprintlib** (until PyPI has 0.1.14):
+Build wheels and install from `dist/`:
 
 ```bash
-cd ../nbis-rs && make wheels-all
-cd ../fingerprintlib && make sync-dev
+cd nbis-rs && make wheels-all
+pip install dist/nbis_python-*-$(python -c "import sysconfig; print(sysconfig.get_platform())").whl
 ```
 
 Or install a built wheel directly:
 
 ```bash
-pip install /path/to/nbis-rs/dist/nbis_python-0.1.14-....whl
+pip install /path/to/nbis-rs/dist/nbis_python-0.1.15-....whl
 ```
