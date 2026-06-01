@@ -58,10 +58,26 @@ def test_similarity_within_class(minutiae_p1_1, minutiae_p1_2, minutiae_p1_3):
     assert score_1_3 > 50, "Expected high similarity between p1_1 and p1_3"
     assert score_2_3 > 50, "Expected high similarity between p1_2 and p1_3"
 
+def test_iso_template_matching(nbis_extractor, minutiae_p1_1, minutiae_p1_2, minutiae_p2_1):
+    iso_1 = minutiae_p1_1.to_iso_19794_2_2011()
+    iso_2 = minutiae_p1_2.to_iso_19794_2_2011()
+    iso_cross = minutiae_p2_1.to_iso_19794_2_2011()
+
+    score_direct = minutiae_p1_1.compare(minutiae_p1_2)
+    score_via_iso = nbis_extractor.compare_iso_19794_2_2011(iso_1, iso_2)
+    assert score_via_iso == score_direct
+    assert score_via_iso > 50
+
+    score_cross_direct = minutiae_p1_1.compare(minutiae_p2_1)
+    score_cross_iso = nbis_extractor.compare_iso_19794_2_2011(iso_1, iso_cross)
+    assert score_cross_iso == score_cross_direct
+    assert score_cross_iso < 50
+
+
 def test_iso_template_round_trip(nbis_extractor, minutiae_p1_1):
     # Set minimum quality to 0.0 for no filtering
-    iso_template = minutiae_p1_1.to_iso_19794_2_2005()
-    minutiae_loaded = nbis_extractor.load_iso_19794_2_2005(iso_template)
+    iso_template = minutiae_p1_1.to_iso_19794_2_2011()
+    minutiae_loaded = nbis_extractor.load_iso_19794_2_2011(iso_template)
 
     for original, loaded in zip(minutiae_p1_1.get(), minutiae_loaded.get()):
         assert original.x() == loaded.x()

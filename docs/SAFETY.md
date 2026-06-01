@@ -26,7 +26,7 @@
 - **Defense in depth**: Python embedders may still use a module-level `RLock` around all `nbis` calls; it should not be required if you use `nbis-python` ≥ 0.1.12 with the native mutex.
 - **NFIQ2**: one C++ model per `Nfiq2`; `NbisExtractor` also uses `Mutex<Nfiq2>` per instance (nested under the native mutex during extract).
 - **`Nfiq2` is not `Clone`** (avoids double `destroy`).
-- **Pure Rust** (`load_iso_19794_2_2005`, `to_iso_19794_2_2005`): safe to call concurrently; no native lock.
+- **Pure Rust** (`load_iso_19794_2_2011`, `to_iso_19794_2_2011`, `compare_iso_19794_2_2011`, and legacy `load_iso_19794_2_2005`): template load/encode need no native lock; `compare_iso_19794_2_2011` calls Bozorth via `Minutiae::compare` and uses the native mutex.
 
 ## Input validation
 

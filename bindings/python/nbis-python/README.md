@@ -4,7 +4,7 @@ This package provides Python bindings for the NIST Biometric Image Software (NBI
 
 ## Features
 - Bindings to NBIS functions for minutiae extraction and matching
-- Exports minutiae templates in ISO/IEC 19794-2:2005 format
+- Exports minutiae templates in ISO/IEC 19794-2:2011 format
 - Matches minutiae templates using the NBIS Bozorth3 algorithm
 
 ## Installation
@@ -35,10 +35,10 @@ assert score > 50, "Expected a high similarity score between p1_1 and p1_3"
 score = minutiae_2.compare(minutiae_3)
 assert score > 50, "Expected a high similarity score between p1_2 and p1_3"
 
-# Convert minutiae to ISO/IEC 19794-2:2005 format
-iso_template = minutiae_1.to_iso_19794_2_2005()
+# Convert minutiae to ISO/IEC 19794-2:2011 format
+iso_template = minutiae_1.to_iso_19794_2_2011()
 # Load it back
-minutiae_from_iso = nbis.load_iso_19794_2_2005(iso_template)
+minutiae_from_iso = nbis_extractor.load_iso_19794_2_2011(iso_template)
 # Compare the original minutiae with the one loaded from ISO template
 for a, b in zip(minutiae_from_iso.get(), minutiae_1.get()):
     assert a.x() == b.x()

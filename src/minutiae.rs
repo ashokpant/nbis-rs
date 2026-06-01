@@ -74,8 +74,8 @@ impl Minutiae {
         self.inner.iter().cloned().map(Arc::new).collect()
     }
 
-    pub fn to_iso_19794_2_2005(&self) -> Result<Vec<u8>, crate::NbisError> {
-        crate::encoding::to_iso_19794_2_2005(self)
+    pub fn to_iso_19794_2_2011(&self) -> Result<Vec<u8>, crate::NbisError> {
+        crate::encoding::to_iso_19794_2_2011(self)
     }
 
     /// Returns the ROI (Region of Interest) associated with these minutiae, if any.

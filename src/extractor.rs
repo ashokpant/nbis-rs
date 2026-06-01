@@ -59,6 +59,20 @@ impl NbisExtractor {
         self.settings.clone()
     }
 
+    pub fn load_iso_19794_2_2011(&self, template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
+        crate::encoding::load_iso_19794_2_2011(template_bytes)
+    }
+
+    /// Bozorth3 score for two ISO/IEC 19794-2 templates (encodes/decodes 2011; reads legacy 2005).
+    pub fn compare_iso_19794_2_2011(
+        &self,
+        probe_template: &[u8],
+        gallery_template: &[u8],
+    ) -> Result<i32, NbisError> {
+        crate::encoding::compare_iso_19794_2_2011(probe_template, gallery_template)
+    }
+
+    /// Load ISO/IEC 19794-2:2005 templates (and auto-detect 2011 when applicable).
     pub fn load_iso_19794_2_2005(&self, template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
         crate::encoding::load_iso_19794_2_2005(template_bytes)
     }
@@ -402,10 +416,15 @@ mod tests {
         let extractor = new_nbis_extractor(NbisExtractorSettings::default()).unwrap();
         let bryanc_1 = fs::read("test_data/p1/p1_1.png").unwrap();
         let res = extractor.extract_minutiae(&bryanc_1).unwrap();
-        let encoded = res.to_iso_19794_2_2005().unwrap();
+        let encoded = res.to_iso_19794_2_2011().unwrap();
         assert!(!encoded.is_empty());
+        assert_eq!(&encoded[4..8], b"030\0");
 
-        let minutiae = extractor.load_iso_19794_2_2005(&encoded).unwrap();
+        let minutiae = extractor.load_iso_19794_2_2011(&encoded).unwrap();
+        let score_via_compare_iso = extractor
+            .compare_iso_19794_2_2011(&encoded, &encoded)
+            .unwrap();
+        assert_eq!(score_via_compare_iso, res.compare(&minutiae));
 
         assert_eq!(res.quality().score, minutiae.quality().score);
         assert_eq!(minutiae.inner.len(), res.inner.len());
@@ -432,19 +451,19 @@ mod tests {
         }
 
         let many_res = Minutiae::new(many_minutiae, res.img_w, res.img_h, res.nfiq, None);
-        let many_encoded = many_res.to_iso_19794_2_2005().unwrap();
+        let many_encoded = many_res.to_iso_19794_2_2011().unwrap();
         assert!(!many_encoded.is_empty());
 
-        let many_minutiae_decoded = extractor.load_iso_19794_2_2005(&many_encoded).unwrap();
+        let many_minutiae_decoded = extractor.load_iso_19794_2_2011(&many_encoded).unwrap();
         assert_eq!(many_minutiae_decoded.inner.len(), DEFAULT_BOZORTH_MINUTIAE);
 
         let bryanc_2 = fs::read("test_data/p1/p1_2.png").unwrap();
         let r1 = extractor.extract_minutiae(&bryanc_1).unwrap();
         let r2 = extractor.extract_minutiae(&bryanc_2).unwrap();
-        let e1 = r1.to_iso_19794_2_2005().unwrap();
-        let e2 = r2.to_iso_19794_2_2005().unwrap();
-        let reloaded_e1 = extractor.load_iso_19794_2_2005(&e1).unwrap();
-        let reloaded_e2 = extractor.load_iso_19794_2_2005(&e2).unwrap();
+        let e1 = r1.to_iso_19794_2_2011().unwrap();
+        let e2 = r2.to_iso_19794_2_2011().unwrap();
+        let reloaded_e1 = extractor.load_iso_19794_2_2011(&e1).unwrap();
+        let reloaded_e2 = extractor.load_iso_19794_2_2011(&e2).unwrap();
 
         let s1 = r1.compare(&r2);
         let s2 = r1.compare(&reloaded_e2);

@@ -1,42 +1,34 @@
 use std::cmp::Ordering;
 
 use crate::{
-    bozorth::MinutiaeSet, consts::NUM_DIRECTIONS, ffi_nbis::DEFAULT_BOZORTH_MINUTIAE, Minutia,
-    MinutiaKind, Minutiae, NbisError, Nfiq2Result,
+    bozorth::MinutiaeSet, consts::MM_PER_INCH, consts::NUM_DIRECTIONS,
+    ffi_nbis::DEFAULT_BOZORTH_MINUTIAE, Minutia, MinutiaKind, Minutiae, NbisError, Nfiq2Result,
 };
+
+const ISO_2011_HEADER_LEN: usize = 15;
+const ISO_2011_MAGIC: &[u8; 4] = b"FMR\0";
+const ISO_2011_VERSION: &[u8; 4] = b"030\0";
+const ISO_2005_VERSION: &[u8; 8] = b"FMR\0 20\0";
+
+/// NIST vendor ID in IBIA registry (used for NFIQ quality algorithm).
+const QVENDOR_NIST: u16 = 0x000f;
+/// Quality algorithm ID (0 = unspecified per ISO 19794-1).
+const QALGO_UNSPECIFIED: u16 = 0;
 
 /// Quantise an angle (degrees) into the 8-bit ISO/IEC 19794-2 orientation unit.
 ///
 /// The ISO unit represents 360 ° / 256 ≈ 1.40625 ° per code value.
 /// Any input (positive or negative) is first wrapped into the range [0, 360).
-///
-/// ```text
-/// angle_deg  →  iso_unit (0‥=255)
-/// 0.0        →  0
-/// 1.40625    →  1
-/// 360.0      →  0
-/// -1.40625   →  255
-/// ```
 #[inline]
 pub(crate) fn encode_iso_angle(angle_deg: f64) -> u8 {
-    // Unquantize the NIST angle
     let angle_deg = 90.0 - angle_deg * 11.25;
-
-    // Quantize to ISO/IEC 19794-2 orientation unit
-    const ISO_STEP: f64 = 360.0 / 256.0; // 1.40625 °
-    let norm = angle_deg.rem_euclid(360.0); // wrap into [0, 360)
+    const ISO_STEP: f64 = 360.0 / 256.0;
+    let norm = angle_deg.rem_euclid(360.0);
     let quantised = (norm / ISO_STEP).round() as i32 & 0xFF;
     quantised as u8
 }
 
-/// Encode a single minutia into its 6-byte ISO/IEC 19794-2 representation.
-///
-/// * `x`, `y`          – image coordinates (0-based, ≤ 65 535)
-/// * `angle_deg`       – orientation in ISO units (0-255, already quantised)
-/// * `quality`         – 0-100 quality score (or vendor-defined)
-/// * `min_type`        – 0 = ridge ending, 1 = bifurcation, 2 = other (uses top 2 bits)
-///
-/// Returns `[u8; 6]` matching the original Python `byte_list`.
+/// Encode a single minutia into its 6-byte ISO/IEC 19794-2:2011 representation.
 #[inline]
 pub(crate) fn encode_minutia(m: &Minutia) -> Result<[u8; 6], NbisError> {
     if m.x < 0 || m.y < 0 || m.x > i32::from(u16::MAX) || m.y > i32::from(u16::MAX) {
@@ -46,41 +38,37 @@ pub(crate) fn encode_minutia(m: &Minutia) -> Result<[u8; 6], NbisError> {
         )));
     }
     let min_type = if m.kind == MinutiaKind::Bifurcation {
-        2
+        2u8
     } else {
-        1
+        1u8
     };
     let angle = encode_iso_angle(m.direction as f64);
-    let quality = (m.reliability * 63.0).min(63.0) as u8;
+    let quality = (m.reliability * 100.0).round().clamp(0.0, 100.0) as u8;
     let x = m.x as u16;
     let y = m.y as u16;
     let mut bytes = [0u8; 6];
 
-    bytes[1] = (x & 0x00FF) as u8; // low-byte of X
-    bytes[0] = ((x >> 8) as u8) + (min_type << 6); // high-byte of X + type*64
-    bytes[2] = (y >> 8) as u8; // high-byte of Y
-    bytes[3] = (y & 0x00FF) as u8; // low-byte of Y
-    bytes[4] = angle; // orientation (ISO unit)
+    bytes[1] = (x & 0x00FF) as u8;
+    bytes[0] = ((x >> 8) as u8) + (min_type << 6);
+    bytes[2] = (y >> 8) as u8;
+    bytes[3] = (y & 0x00FF) as u8;
+    bytes[4] = angle;
     bytes[5] = quality;
 
     Ok(bytes)
 }
 
 fn nist_xyt(minutiae: &Minutiae, minutia: &Minutia) -> (i32, i32, i32) {
-    // 1. Bottom‑left origin for Y.
     let x = minutia.x;
     let y = minutiae.img_h as i32 - minutia.y;
-
-    // 2. Direction → degrees.
-    let degrees_per_unit = 180.0 / NUM_DIRECTIONS; // 11.25 for 16 dirs
+    let degrees_per_unit = 180.0 / NUM_DIRECTIONS;
     let t = (270 - ((minutia.direction as f64 * degrees_per_unit).round() as i32)) % 360;
     let t = if t < 0 { t + 360 } else { t };
-
     (x, y, t)
 }
+
 /// Convert this result into a Bozorth‑ready [`MinutiaeSet`].
 pub(crate) fn to_nist_xyt_set(minutiae: &Minutiae) -> MinutiaeSet {
-    // 1. Copy, sort by reliability (desc), truncate
     let len = minutiae.inner.len();
     let mut xs = Vec::with_capacity(len);
     let mut ys = Vec::with_capacity(len);
@@ -96,47 +84,31 @@ pub(crate) fn to_nist_xyt_set(minutiae: &Minutiae) -> MinutiaeSet {
     MinutiaeSet { xs, ys, theta: ts }
 }
 
-/// De-quantise an ISO/IEC 19794-2 orientation code back to the
-/// *NIST orientation unit* (0‥15).
-///
-/// ```text
-/// iso_code  →  nist_unit
-/// 0         →  8
-/// 64        →  0
-/// 255       →  9           (because 255·1.40625° ≈ 358.59°, etc.)
-/// ```
-///
-/// The result is returned as `u8`; change the cast if you prefer `f64`.
 #[inline]
 pub(crate) fn decode_iso_angle(iso_code: u8) -> i32 {
-    const ISO_STEP: f64 = 360.0 / 256.0; // 1.40625°
-    const NIST_STEP: f64 = 11.25; // one NIST unit in degrees
+    const ISO_STEP: f64 = 360.0 / 256.0;
+    const NIST_STEP: f64 = 11.25;
 
-    // 1. Expand the 8-bit code to a real angle (centre of its bin).
     let iso_deg = iso_code as f64 * ISO_STEP;
-
-    // 2. Undo the “90° − θ” swirl applied in the forward path.
-    //    rem_euclid keeps the value positive before the division.
     let nist_unit = (90.0 - iso_deg).rem_euclid(360.0) / NIST_STEP;
-
-    // 3. Re-quantise and wrap into 0-31 (5 bits)
     (nist_unit.round() as u32 & 0x1F) as i32
 }
 
 /// Decode the 6-byte minutia record used by `encode_minutia`.
 #[inline]
-pub(crate) fn decode_minutia(bytes: &[u8; 6]) -> Minutia {
+pub(crate) fn decode_minutia(bytes: &[u8; 6], min_quality_scale: MinQualityScale) -> Minutia {
     let x = (u16::from(bytes[0] & 0x3F) << 8) | u16::from(bytes[1]);
     let y = (u16::from(bytes[2]) << 8) | u16::from(bytes[3]);
-    let direction = bytes[4];
-    let reliability = f64::from(bytes[5]) / 63.0; // 0-63 → 0.0-1.0
+    let direction = decode_iso_angle(bytes[4]);
+    let reliability = match min_quality_scale {
+        MinQualityScale::ZeroTo100 => f64::from(bytes[5]) / 100.0,
+        MinQualityScale::ZeroTo63 => f64::from(bytes[5]) / 63.0,
+    };
     let kind = if bytes[0] & 0xC0 == 0x80 {
         MinutiaKind::Bifurcation
     } else {
         MinutiaKind::RidgeEnding
     };
-
-    let direction = decode_iso_angle(direction);
 
     Minutia {
         x: x as i32,
@@ -147,15 +119,13 @@ pub(crate) fn decode_minutia(bytes: &[u8; 6]) -> Minutia {
     }
 }
 
-/// Convert this set of minutiae into an ISO/IEC 19794-2:2005 template.
-///
-/// # Arguments
-/// * `minutiae_obj` — the `Minutiae` object to convert.
-///
-/// Returns a `Vec<u8>` containing the ISO template bytes.
-pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Result<Vec<u8>, NbisError> {
-    // The maximum number of minutiae is DEFAULT_BOZORTH_MINUTIAE, so we can use u8 for the count.
-    // therefore, first filter the top DEFAULT_BOZORTH_MINUTIAE minutiae by quality.
+#[derive(Clone, Copy)]
+pub(crate) enum MinQualityScale {
+    ZeroTo100,
+    ZeroTo63,
+}
+
+fn select_minutiae_for_template(minutiae_obj: &Minutiae) -> Result<Vec<Minutia>, NbisError> {
     let mut minutiae = minutiae_obj.inner.clone();
 
     if minutiae.len() > DEFAULT_BOZORTH_MINUTIAE {
@@ -167,69 +137,102 @@ pub fn to_iso_19794_2_2005(minutiae_obj: &Minutiae) -> Result<Vec<u8>, NbisError
         minutiae.truncate(DEFAULT_BOZORTH_MINUTIAE);
     }
 
-    const ISO_HEADER_LENGTH: usize = 26;
-    let total_bytes = minutiae.len() * 6 + ISO_HEADER_LENGTH;
+    if minutiae.is_empty() {
+        return Err(NbisError::InvalidTemplate(
+            "ISO 19794-2:2011 requires at least one minutia".into(),
+        ));
+    }
 
-    let total_bytes_u32 =
-        u32::try_from(total_bytes).expect("template larger than 4 294 967 295 bytes");
+    Ok(minutiae)
+}
 
+fn ppcm_from_ppi(ppi: f64) -> u16 {
+    (ppi / MM_PER_INCH).round().clamp(99.0, u16::MAX as f64) as u16
+}
+
+fn fingerprint_preamble_len(qcount: u8) -> usize {
+    4 + 9 + 1 + 2 + 2 + 1 + usize::from(qcount) * 5 + 1 + 1 + 2 + 2 + 1 + 2 + 2 + 1 + 1
+}
+
+/// Convert this set of minutiae into an ISO/IEC 19794-2:2011 template.
+pub fn to_iso_19794_2_2011(minutiae_obj: &Minutiae) -> Result<Vec<u8>, NbisError> {
+    let minutiae = select_minutiae_for_template(minutiae_obj)?;
+    let ppi = 500.0_f64;
+    let resolution = ppcm_from_ppi(ppi);
     let width = minutiae_obj.img_w as u16;
     let height = minutiae_obj.img_h as u16;
 
-    let mut buf = Vec::with_capacity(ISO_HEADER_LENGTH + minutiae.len() * 6);
+    const QCOUNT: u8 = 1;
+    let fp_preamble = fingerprint_preamble_len(QCOUNT);
+    let fp_bytes = fp_preamble + minutiae.len() * 6 + 2;
+    let total_bytes = ISO_2011_HEADER_LEN + fp_bytes;
 
-    // "FMR\0 20\0"  – 8 bytes
-    buf.extend_from_slice(b"FMR\0 20\0");
+    let total_bytes_u32 =
+        u32::try_from(total_bytes).map_err(|_| NbisError::InvalidTemplate("template too large".into()))?;
+    let fp_bytes_u32 =
+        u32::try_from(fp_bytes).map_err(|_| NbisError::InvalidTemplate("fingerprint block too large".into()))?;
 
-    // 4-byte total length (big-endian)
+    let mut buf = Vec::with_capacity(total_bytes);
+
+    // HEADER (15 bytes)
+    buf.extend_from_slice(ISO_2011_MAGIC);
+    buf.extend_from_slice(ISO_2011_VERSION);
     buf.extend_from_slice(&total_bytes_u32.to_be_bytes());
+    buf.extend_from_slice(&1u16.to_be_bytes()); // FPCOUNT
+    buf.push(0); // HASCERTS
 
-    // Two 0x00 padding bytes
-    buf.extend_from_slice(&[0x00, 0x00]);
+    // FINGERPRINT
+    buf.extend_from_slice(&fp_bytes_u32.to_be_bytes());
 
-    // Width & height (big-endian, 2 bytes each)
+    // DATETIME — not provided
+    buf.extend_from_slice(&[0xff; 9]);
+
+    buf.push(0); // DEVTECH: unknown
+    buf.extend_from_slice(&0u16.to_be_bytes()); // DEVVENDOR
+    buf.extend_from_slice(&0u16.to_be_bytes()); // DEVID
+    buf.push(QCOUNT);
+
+    let fp_quality = minutiae_obj.nfiq.score.min(100) as u8;
+    buf.push(fp_quality);
+    buf.extend_from_slice(&QVENDOR_NIST.to_be_bytes());
+    buf.extend_from_slice(&QALGO_UNSPECIFIED.to_be_bytes());
+
+    buf.push(0); // POSITION: unknown
+    buf.push(0); // VIEWOFFSET
+    buf.extend_from_slice(&resolution.to_be_bytes());
+    buf.extend_from_slice(&resolution.to_be_bytes());
+    buf.push(0); // SAMPLETYPE: live plain
     buf.extend_from_slice(&width.to_be_bytes());
     buf.extend_from_slice(&height.to_be_bytes());
+    buf.push(0x60); // MINBYTES=6, ENDINGTYPE=0 (valley bifurcation)
+    buf.push(minutiae.len() as u8);
 
-    let finger_position: u8 = 0; // 0 = unknown (or 1–10 = right fingers, 11–20 = left fingers)
-    let view_number: u8 = 0; // Usually 0 for single view
-    let impression_type: u8 = 0; // 0 = live-scan plain
-    let view_and_impression = (view_number << 4) | (impression_type & 0x0F);
-
-    // Convert NFIQ to ISO quality (0-100)
-    let finger_quality: u8 = minutiae_obj.nfiq.score as u8;
-
-    // Reserved 4 bytes
-    let reserved = [0x00, 0x00, 0x00, 0x00];
-
-    // Metadata bytes
-    buf.extend_from_slice(&[finger_position]);
-    buf.extend_from_slice(&[view_and_impression]);
-    buf.extend_from_slice(&[finger_quality]);
-    buf.extend_from_slice(&reserved);
-
-    // Number of minutiae
-    let num_minutiae = minutiae.len() as u8;
-    buf.extend_from_slice(&num_minutiae.to_be_bytes());
-
-    for m in minutiae.iter() {
-        let encoded = encode_minutia(m)?;
-        buf.extend_from_slice(&encoded);
+    for m in &minutiae {
+        buf.extend_from_slice(&encode_minutia(m)?);
     }
 
-    assert_eq!(buf.len(), total_bytes);
+    buf.extend_from_slice(&0u16.to_be_bytes()); // EXTBYTES
 
+    debug_assert_eq!(buf.len(), total_bytes);
     Ok(buf)
 }
 
+/// Bozorth3 match score from two ISO/IEC 19794-2 templates (2011 or legacy 2005).
+pub fn compare_iso_19794_2_2011(probe_template: &[u8], gallery_template: &[u8]) -> Result<i32, NbisError> {
+    let probe = load_iso_19794_2_2011(probe_template)?;
+    let gallery = load_iso_19794_2_2011(gallery_template)?;
+    Ok(probe.compare(&gallery))
+}
+
+/// Loads an ISO/IEC 19794-2:2011 fingerprint template from bytes.
+pub fn load_iso_19794_2_2011(template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
+    if template_bytes.len() >= 8 && &template_bytes[0..8] == ISO_2005_VERSION {
+        return load_iso_19794_2_2005(template_bytes);
+    }
+    parse_iso_2011_template(template_bytes)
+}
+
 /// Loads an ISO/IEC 19794-2:2005 fingerprint template from bytes.
-///
-/// # Arguments
-/// * `template_bytes` — the raw bytes of the ISO template.
-///
-/// Returns a [`Minutiae`] object containing the decoded minutiae.
-///
-/// If the template is invalid or cannot be parsed, returns an [`NbisError`].
 pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
     const ISO_HEADER_LENGTH: usize = 26;
     if template_bytes.len() < ISO_HEADER_LENGTH {
@@ -238,8 +241,13 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
         ));
     }
 
-    // Check the header
-    if &template_bytes[0..8] != b"FMR\0 20\0" {
+    if &template_bytes[0..8] != ISO_2005_VERSION {
+        if template_bytes.len() >= ISO_2011_HEADER_LEN
+            && &template_bytes[0..4] == ISO_2011_MAGIC
+            && &template_bytes[4..8] == ISO_2011_VERSION
+        {
+            return parse_iso_2011_template(template_bytes);
+        }
         return Err(NbisError::InvalidTemplate("Invalid ISO header".to_string()));
     }
 
@@ -257,12 +265,151 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
 
     let width = u16::from_be_bytes([template_bytes[14], template_bytes[15]]);
     let height = u16::from_be_bytes([template_bytes[16], template_bytes[17]]);
-
     let finger_quality = template_bytes[20];
-
     let num_minutiae = template_bytes[25] as usize;
     let minutiae_start: usize = 26;
 
+    let minutiae = decode_minutiae_records(
+        template_bytes,
+        minutiae_start,
+        num_minutiae,
+        6,
+        MinQualityScale::ZeroTo63,
+    )?;
+
+    Ok(Minutiae::new(
+        minutiae,
+        width as u32,
+        height as u32,
+        nfiq_from_quality(finger_quality),
+        None,
+    ))
+}
+
+fn parse_iso_2011_template(template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
+    if template_bytes.len() < ISO_2011_HEADER_LEN {
+        return Err(NbisError::InvalidTemplate(
+            "ISO 2011 template too short".into(),
+        ));
+    }
+
+    if &template_bytes[0..4] != ISO_2011_MAGIC {
+        return Err(NbisError::InvalidTemplate("Invalid ISO magic".into()));
+    }
+    if &template_bytes[4..8] != ISO_2011_VERSION {
+        return Err(NbisError::InvalidTemplate(
+            "Unsupported ISO 19794-2 version".into(),
+        ));
+    }
+
+    let total_length = usize_from_be_u32(&template_bytes[8..12])?;
+    if total_length != template_bytes.len() {
+        return Err(NbisError::InvalidTemplate("Total length mismatch".into()));
+    }
+
+    let fp_count = usize::from(u16::from_be_bytes([template_bytes[12], template_bytes[13]]));
+    if fp_count != 1 {
+        return Err(NbisError::InvalidTemplate(format!(
+            "unsupported FPCOUNT: {fp_count}"
+        )));
+    }
+
+    let fp_start = ISO_2011_HEADER_LEN;
+    let fp_bytes = usize_from_be_u32(&template_bytes[fp_start..fp_start + 4])?;
+    let mut offset = fp_start + 4;
+
+    let fp_end = fp_start
+        .checked_add(fp_bytes)
+        .ok_or_else(|| NbisError::InvalidTemplate("fingerprint block overflow".into()))?;
+    if fp_end > template_bytes.len() {
+        return Err(NbisError::InvalidTemplate(
+            "fingerprint block exceeds template".into(),
+        ));
+    }
+
+    offset += 9; // DATETIME
+    offset += 1; // DEVTECH
+    offset += 2; // DEVVENDOR
+    offset += 2; // DEVID
+
+    if offset >= fp_end {
+        return Err(NbisError::InvalidTemplate("truncated fingerprint header".into()));
+    }
+    let qcount = template_bytes[offset];
+    offset += 1;
+
+    let mut finger_quality = 0u8;
+    if qcount > 0 {
+        let q_end = offset
+            .checked_add(usize::from(qcount) * 5)
+            .ok_or_else(|| NbisError::InvalidTemplate("quality records overflow".into()))?;
+        if q_end > fp_end {
+            return Err(NbisError::InvalidTemplate(
+                "quality records exceed fingerprint block".into(),
+            ));
+        }
+        finger_quality = template_bytes[offset];
+        offset = q_end;
+    }
+
+    if offset + 13 > fp_end {
+        return Err(NbisError::InvalidTemplate(
+            "truncated fingerprint metadata".into(),
+        ));
+    }
+
+    offset += 1; // POSITION
+    offset += 1; // VIEWOFFSET
+    offset += 2; // RESOLUTIONX
+    offset += 2; // RESOLUTIONY
+    offset += 1; // SAMPLETYPE
+
+    let width = u16::from_be_bytes([template_bytes[offset], template_bytes[offset + 1]]);
+    offset += 2;
+    let height = u16::from_be_bytes([template_bytes[offset], template_bytes[offset + 1]]);
+    offset += 2;
+
+    let min_bytes = (template_bytes[offset] >> 4) & 0x0f;
+    offset += 1;
+
+    let num_minutiae = template_bytes[offset] as usize;
+    offset += 1;
+
+    let min_record_len = usize::from(min_bytes);
+    if min_record_len != 5 && min_record_len != 6 {
+        return Err(NbisError::InvalidTemplate(format!(
+            "unsupported MINBYTES: {min_bytes}"
+        )));
+    }
+
+    let minutiae = decode_minutiae_records(
+        template_bytes,
+        offset,
+        num_minutiae,
+        min_record_len,
+        if min_record_len == 6 {
+            MinQualityScale::ZeroTo100
+        } else {
+            MinQualityScale::ZeroTo63
+        },
+    )?;
+
+    Ok(Minutiae::new(
+        minutiae,
+        width as u32,
+        height as u32,
+        nfiq_from_quality(finger_quality),
+        None,
+    ))
+}
+
+fn decode_minutiae_records(
+    template_bytes: &[u8],
+    minutiae_start: usize,
+    num_minutiae: usize,
+    record_len: usize,
+    quality_scale: MinQualityScale,
+) -> Result<Vec<Minutia>, NbisError> {
     const MAX_TEMPLATE_MINUTIAE: usize = 512;
     if num_minutiae > MAX_TEMPLATE_MINUTIAE {
         return Err(NbisError::InvalidTemplate(format!(
@@ -270,7 +417,7 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
         )));
     }
     let minutiae_bytes = num_minutiae
-        .checked_mul(6)
+        .checked_mul(record_len)
         .and_then(|n| minutiae_start.checked_add(n))
         .ok_or_else(|| NbisError::InvalidTemplate("minutiae size overflow".into()))?;
     if minutiae_bytes > template_bytes.len() {
@@ -281,26 +428,70 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
 
     let mut minutiae = Vec::with_capacity(num_minutiae);
     for i in 0..num_minutiae {
-        let start = minutiae_start + 6 * i;
-        let end = start + 6;
+        let start = minutiae_start + record_len * i;
+        let end = start + record_len;
         if end > template_bytes.len() {
             return Err(NbisError::InvalidTemplate(
                 "Minutia data overflow".to_string(),
             ));
         }
-        let m_bytes: [u8; 6] = template_bytes[start..end].try_into().unwrap();
-        minutiae.push(decode_minutia(&m_bytes));
+        if record_len == 6 {
+            let m_bytes: [u8; 6] = template_bytes[start..end].try_into().unwrap();
+            minutiae.push(decode_minutia(&m_bytes, quality_scale));
+        } else {
+            let mut m_bytes = [0u8; 6];
+            m_bytes[..5].copy_from_slice(&template_bytes[start..end]);
+            minutiae.push(decode_minutia(&m_bytes, quality_scale));
+        }
     }
+    Ok(minutiae)
+}
 
-    Ok(Minutiae::new(
-        minutiae,
-        width as u32,
-        height as u32,
-        Nfiq2Result {
-            score: finger_quality as u32,
-            actionable: Vec::new(), // No actionable items in ISO templates
-            features: Vec::new(),   // No features in ISO templates
-        },
-        None, // No ROI in ISO templates
-    ))
+fn nfiq_from_quality(finger_quality: u8) -> Nfiq2Result {
+    Nfiq2Result {
+        score: u32::from(finger_quality),
+        actionable: Vec::new(),
+        features: Vec::new(),
+    }
+}
+
+fn usize_from_be_u32(bytes: &[u8]) -> Result<usize, NbisError> {
+    let value = u32::from_be_bytes(bytes.try_into().map_err(|_| {
+        NbisError::InvalidTemplate("invalid length field".into())
+    })?) as usize;
+    Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Minutia, MinutiaKind, Nfiq2Result};
+
+    #[test]
+    fn iso_2011_header_layout() {
+        let m = Minutia {
+            x: 10,
+            y: 20,
+            direction: 4,
+            reliability: 0.8,
+            kind: MinutiaKind::RidgeEnding,
+        };
+        let minutiae = Minutiae::new(
+            vec![m],
+            100,
+            100,
+            Nfiq2Result {
+                score: 75,
+                actionable: Vec::new(),
+                features: Vec::new(),
+            },
+            None,
+        );
+        let buf = to_iso_19794_2_2011(&minutiae).unwrap();
+        assert_eq!(&buf[0..4], ISO_2011_MAGIC);
+        assert_eq!(&buf[4..8], ISO_2011_VERSION);
+        let reloaded = load_iso_19794_2_2011(&buf).unwrap();
+        assert_eq!(reloaded.inner.len(), 1);
+        assert_eq!(reloaded.quality().score, 75);
+    }
 }

@@ -7,7 +7,7 @@ For convenience, this library also binds to the [NIST Fingerprint Image Quality]
 ## Features
 
 - Bindings to NBIS functions for minutia extraction, matching
-- Exports minutiae templates in ISO/IEC 19794-2:2005 format
+- Exports minutiae templates in ISO/IEC 19794-2:2011 format (loads 2005 templates too)
 - Matches minutiae templates against each other using the NBIS Bozorth3 algorithm
 - Provides support for NFIQ2 quality assessment
 
@@ -102,12 +102,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let score = minutiae_2.compare(&minutiae_3);
     assert!(score > 35, "Expected a high similarity score between p1_2 and p1_3");
 
-    // Next we will demonstrate conversion to ISO/IEC 19794-2:2005 format
+    // Next we will demonstrate conversion to ISO/IEC 19794-2:2011 format
     // and back to a `Minutiae` object.
     // First, convert the minutiae to ISO template bytes
-    let iso_template: Vec<u8> = minutiae_1.to_iso_19794_2_2005()?;              
+    let iso_template: Vec<u8> = minutiae_1.to_iso_19794_2_2011()?;
     // And load it back
-    let minutiae_from_iso = extractor.load_iso_19794_2_2005(&iso_template)?;
+    let minutiae_from_iso = extractor.load_iso_19794_2_2011(&iso_template)?;
     // Compare the original minutiae with the one loaded from ISO template
     for (a, b) in minutiae_from_iso.get().iter().zip(minutiae_1.get().iter()) {
         assert_eq!(a.x(), b.x());
@@ -180,10 +180,10 @@ assert score > 50, "Expected a high similarity score between p1_1 and p1_3"
 score = minutiae_2.compare(minutiae_3)
 assert score > 50, "Expected a high similarity score between p1_2 and p1_3"
 
-# Convert minutiae to ISO/IEC 19794-2:2005 format
-iso_template = minutiae_1.to_iso_19794_2_2005()?
+# Convert minutiae to ISO/IEC 19794-2:2011 format
+iso_template = minutiae_1.to_iso_19794_2_2011()?
 # Load it back
-minutiae_from_iso = extractor.load_iso_19794_2_2005(iso_template)
+minutiae_from_iso = extractor.load_iso_19794_2_2011(iso_template)
 # Compare the original minutiae with the one loaded from ISO template
 for a, b in zip(minutiae_from_iso.get(), minutiae_1.get()):
     assert a.x() == b.x()
