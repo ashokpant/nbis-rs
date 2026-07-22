@@ -25,3 +25,4 @@ ext/NFIQ2-2.3.0/opencv/
 ext/opencv-4.10.0/
 ext/libbiomeval-10.0/
 ext/nfiq2_libs/
+.cargo
