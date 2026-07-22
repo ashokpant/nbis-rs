@@ -30,7 +30,7 @@ make python   # optional Python wheel
 ## Python package (`nbis-python` on PyPI)
 
 ```bash
-pip install "nbis-python>=0.1.15"
+pip install "nbis-python>=0.1.17"
 ```
 
 **Maintainers:** build macOS + Linux wheels and upload — see [docs/PUBLISHING.md](docs/PUBLISHING.md).
