@@ -28,6 +28,15 @@
 - **`Nfiq2` is not `Clone`** (avoids double `destroy`).
 - **Pure Rust** (`load_iso_19794_2_2011`, `to_iso_19794_2_2011`, `compare_iso_19794_2_2011`, and legacy `load_iso_19794_2_2005`): template load/encode need no native lock; `compare_iso_19794_2_2011` calls Bozorth via `Minutiae::compare` and uses the native mutex.
 
+## Bozorth match / 1:N search
+
+- Bozorth C uses process-global tables; never call match concurrently without the native mutex (already held by `Minutiae::compare`).
+- **qq[] overflow paths** historically called `fprintf(errorfp, …)` with `errorfp == NULL` and NULL probe/gallery filenames. That is undefined behavior and segfaults under gallery search when overflow is hit. Fixed in 0.1.17+:
+  - `errorfp` is initialized to a silent `/dev/null` (or `stderr` fallback), never left NULL
+  - filename getters never return NULL
+  - overflow logs use `BZ_FPRINTF` (NULL-safe)
+- On overflow, Rust still maps score `4000` → `0` (no match).
+
 ## Input validation
 
 - Grayscale dimensions validated before SIVV / morph center FFI.

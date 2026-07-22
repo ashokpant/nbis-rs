@@ -42,3 +42,38 @@ pub(crate) fn bz_match_score(probe: &MinutiaeSet, gallery: &MinutiaeSet) -> i32 
     let g_c = gallery.to_c_struct();
     unsafe { ffi_nbis::bozorth_main(&p_c, &g_c) }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dense_set(seed: i32, n: usize) -> MinutiaeSet {
+        let mut xs = Vec::with_capacity(n);
+        let mut ys = Vec::with_capacity(n);
+        let mut theta = Vec::with_capacity(n);
+        for i in 0..n {
+            let k = seed + i as i32;
+            xs.push(20 + (k * 17) % 400);
+            ys.push(20 + (k * 29) % 400);
+            theta.push((k * 13) % 180);
+        }
+        MinutiaeSet { xs, ys, theta }
+    }
+
+    /// Dense 1:N compares used to segfault when qq[] overflow logged via fprintf(NULL).
+    #[test]
+    fn dense_gallery_compare_does_not_abort() {
+        let probe = dense_set(1, 180);
+        let mut saw_nonzero = false;
+        for g in 0..40 {
+            let gallery = dense_set(1000 + g * 7, 180);
+            let score = bz_match_score(&probe, &gallery);
+            assert!(score >= 0, "negative score {score} for gallery {g}");
+            if score > 0 {
+                saw_nonzero = true;
+            }
+        }
+        // Overflow (4000) or any positive score means we exercised the matcher.
+        assert!(saw_nonzero, "expected at least one non-zero Bozorth score");
+    }
+}

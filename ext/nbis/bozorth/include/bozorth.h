@@ -225,6 +225,8 @@ extern int verbose_bozorth;
 extern int verbose_threshold;
 /* Global supporting error reporting */
 extern FILE *errorfp;
+/* NULL-safe logging: legacy code assumed a valid FILE*; library builds used NULL. */
+#define BZ_FPRINTF(...) do { if (errorfp != NULL) (void)fprintf(errorfp, __VA_ARGS__); } while (0)
 
 /**************************************************************************/
 /* In: BZ_GBLS.C */

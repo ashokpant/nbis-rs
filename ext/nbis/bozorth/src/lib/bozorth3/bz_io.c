@@ -148,6 +148,8 @@ return 0;
 static char program_buffer[ 1024 ];
 static char * pfile;
 static char * gfile;
+static char empty_name[] = "";
+static char default_progname[] = "nbis";
 
 /***********************************************************************/
 void set_progname( int use_pid, char * basename, pid_t pid )
@@ -173,19 +175,23 @@ gfile = filename;
 /***********************************************************************/
 char * get_progname( void )
 {
+/* Uninitialized program_buffer is all zeros → empty C string; still safe for %s. */
+if ( program_buffer[0] == '\0' )
+   return default_progname;
 return program_buffer;
 }
 
 /***********************************************************************/
 char * get_probe_filename( void )
 {
-return pfile;
+/* Never return NULL: qq-overflow warnings use %s and would segfault. */
+return pfile != NULL ? pfile : empty_name;
 }
 
 /***********************************************************************/
 char * get_gallery_filename( void )
 {
-return gfile;
+return gfile != NULL ? gfile : empty_name;
 }
 
 /***********************************************************************/

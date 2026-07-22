@@ -559,7 +559,7 @@ for ( k = 1; k < probe_ptrlist_len; k++ ) {
 		if ( edge_pair_index == 19999 ) {
 #ifndef NOVERBOSE
 			if ( verbose_bozorth )
-				fprintf( errorfp, "%s: bz_match(): WARNING: list is full, breaking loop early [p=%s; g=%s]\n",
+				BZ_FPRINTF( "%s: bz_match(): WARNING: list is full, breaking loop early [p=%s; g=%s]\n",
 							get_progname(), get_probe_filename(), get_gallery_filename() );
 #endif
 			goto END;		/* break out if list exceeded */
@@ -641,13 +641,13 @@ if ( pstruct->nrows < min_computable_minutiae ) {
 #ifndef NOVERBOSE
 	if ( gstruct->nrows < min_computable_minutiae ) {
 		if ( verbose_bozorth )
-			fprintf( errorfp, "%s: bz_match_score(): both probe and gallery file have too few minutiae (%d,%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
+			BZ_FPRINTF( "%s: bz_match_score(): both probe and gallery file have too few minutiae (%d,%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
 						get_progname(),
 						pstruct->nrows, gstruct->nrows, min_computable_minutiae,
 						get_probe_filename(), get_gallery_filename() );
 	} else {
 		if ( verbose_bozorth )
-			fprintf( errorfp, "%s: bz_match_score(): probe file has too few minutiae (%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
+			BZ_FPRINTF( "%s: bz_match_score(): probe file has too few minutiae (%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
 						get_progname(),
 						pstruct->nrows, min_computable_minutiae,
 						get_probe_filename(), get_gallery_filename() );
@@ -661,7 +661,7 @@ if ( pstruct->nrows < min_computable_minutiae ) {
 if ( gstruct->nrows < min_computable_minutiae ) {
 #ifndef NOVERBOSE
 	if ( verbose_bozorth )
-		fprintf( errorfp, "%s: bz_match_score(): gallery file has too few minutiae (%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
+		BZ_FPRINTF( "%s: bz_match_score(): gallery file has too few minutiae (%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
 						get_progname(),
 						gstruct->nrows, min_computable_minutiae,
 						get_probe_filename(), get_gallery_filename() );
@@ -747,7 +747,7 @@ for ( k = 0; k < np - 1; k++ ) {
 			kx++;
 			bz_sift( &ww, kz, &qh, l, kx, ftt, &tot, &qq_overflow );
 			if ( qq_overflow ) {
-				fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #1 [p=%s; g=%s]\n",
+				BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #1 [p=%s; g=%s]\n",
 							get_progname(), get_probe_filename(), get_gallery_filename() );
 				return QQ_OVERFLOW_SCORE;
 			}
@@ -769,7 +769,7 @@ for ( k = 0; k < np - 1; k++ ) {
 				for ( z = 1; z < 3; z++ ) {
 					if ( z == 1 ) {
 						if ( (j+1) > QQ_SIZE ) {
-							fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow #1 in bozorth3(); j-1 is %d [p=%s; g=%s]\n",
+							BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow #1 in bozorth3(); j-1 is %d [p=%s; g=%s]\n",
 								get_progname(), j-1, get_probe_filename(), get_gallery_filename() );
 							return QQ_OVERFLOW_SCORE;
 						}
@@ -799,7 +799,7 @@ for ( k = 0; k < np - 1; k++ ) {
 						kx = i + 1;
 						bz_sift( &ww, z, &qh, l, kx, ftt, &tot, &qq_overflow );
 						if ( qq_overflow ) {
-							fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #2 [p=%s; g=%s]\n",
+							BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #2 [p=%s; g=%s]\n",
 								get_progname(), get_probe_filename(), get_gallery_filename() );
 							return QQ_OVERFLOW_SCORE;
 						}
@@ -826,7 +826,7 @@ for ( k = 0; k < np - 1; k++ ) {
 
 					if ( i == 1 ) {
 						if ( (j+1) > QQ_SIZE ) {
-							fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow #2 in bozorth3(); j-1 is %d [p=%s; g=%s]\n",
+							BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow #2 in bozorth3(); j-1 is %d [p=%s; g=%s]\n",
 								get_progname(), j-1, get_probe_filename(), get_gallery_filename() );
 							return QQ_OVERFLOW_SCORE;
 						}
@@ -871,7 +871,7 @@ for ( k = 0; k < np - 1; k++ ) {
 						kx++;
 						bz_sift( &ww, kz, &qh, l, kx, ftt, &tot, &qq_overflow );
 						if ( qq_overflow ) {
-							fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #3 [p=%s; g=%s]\n",
+							BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #3 [p=%s; g=%s]\n",
 								get_progname(), get_probe_filename(), get_gallery_filename() );
 							return QQ_OVERFLOW_SCORE;
 						}
@@ -1339,7 +1339,7 @@ for ( k = 0; k < np - 1; k++ ) {
 
 
 		if ( qh > QQ_SIZE ) {
-			fprintf( errorfp, "%s: WARNING: bz_match_score(): qq[] overflow #3 in bozorth3(); qh-1 is %d [p=%s; g=%s]\n",
+			BZ_FPRINTF( "%s: WARNING: bz_match_score(): qq[] overflow #3 in bozorth3(); qh-1 is %d [p=%s; g=%s]\n",
 					get_progname(), qh-1, get_probe_filename(), get_gallery_filename() );
 			return QQ_OVERFLOW_SCORE;
 		}
@@ -1513,7 +1513,7 @@ if ( n == 0 && t == 0 ) {
 	}
 
 	if ( *qh >= QQ_SIZE ) {
-		fprintf( errorfp, "%s: ERROR: bz_sift(): qq[] overflow #1; the index [*qh] is %d [p=%s; g=%s]\n",
+		BZ_FPRINTF( "%s: ERROR: bz_sift(): qq[] overflow #1; the index [*qh] is %d [p=%s; g=%s]\n",
 						get_progname(),
 						*qh, get_probe_filename(), get_gallery_filename() );
 		*qq_overflow = 1;
@@ -1543,7 +1543,7 @@ if ( n == l ) {
 	if ( sc[kx-1] != ftt ) {
 		if ( zz[kx-1] == 1000 ) {
 			if ( *qh >= QQ_SIZE ) {
-				fprintf( errorfp, "%s: ERROR: bz_sift(): qq[] overflow #2; the index [*qh] is %d [p=%s; g=%s]\n",
+				BZ_FPRINTF( "%s: ERROR: bz_sift(): qq[] overflow #2; the index [*qh] is %d [p=%s; g=%s]\n",
 							get_progname(),
 							*qh,
 							get_probe_filename(), get_gallery_filename() );

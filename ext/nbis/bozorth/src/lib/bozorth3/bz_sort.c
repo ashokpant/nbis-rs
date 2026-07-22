@@ -125,7 +125,7 @@ static int * stack_pointer = stack;
 static int popstack( int *popval )
 {
 if ( --stack_pointer < stack ) {
-	fprintf( errorfp, "%s: ERROR: popstack(): stack underflow\n", get_progname() );
+	BZ_FPRINTF( "%s: ERROR: popstack(): stack underflow\n", get_progname() );
 	return 1;
 }
 
@@ -139,7 +139,7 @@ static int pushstack( int position )
 {
 *stack_pointer++ = position;
 if ( stack_pointer > ( stack + BZ_STACKSIZE ) ) {
-	fprintf( errorfp, "%s: ERROR: pushstack(): stack overflow\n", get_progname() );
+	BZ_FPRINTF( "%s: ERROR: pushstack(): stack overflow\n", get_progname() );
 	return 1;
 }
 return 0;
@@ -286,7 +286,7 @@ struct cell * cells;
 
 cells = (struct cell *) malloc( num * sizeof(struct cell) );
 if ( cells == (struct cell *) NULL ){
-	fprintf( errorfp, "%s: ERROR: malloc(): struct cell\n", get_progname() );
+	BZ_FPRINTF( "%s: ERROR: malloc(): struct cell\n", get_progname() );
         return 1;
 }
 
