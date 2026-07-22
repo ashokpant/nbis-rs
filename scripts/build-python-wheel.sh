@@ -27,12 +27,23 @@ if [ "${NBIS_SKIP_HOST_DEPS:-0}" != "1" ]; then
       ;;
     Darwin)
       ./scripts/install-deps-macos.sh
-      export OPENCV_DIR="${OPENCV_DIR:-}"
-      [ -z "$OPENCV_DIR" ] && [ -f /opt/homebrew/opt/opencv/lib/cmake/opencv4/OpenCVConfig.cmake ] \
-        && OPENCV_DIR=/opt/homebrew/opt/opencv/lib/cmake/opencv4
-      [ -z "$OPENCV_DIR" ] && [ -f /usr/local/opt/opencv/lib/cmake/opencv4/OpenCVConfig.cmake ] \
-        && OPENCV_DIR=/usr/local/opt/opencv/lib/cmake/opencv4
+      if [ -z "${OPENCV_DIR:-}" ]; then
+        if [ -f "${HOME}/.local/opencv-4.13.0/lib/cmake/opencv4/OpenCVConfig.cmake" ]; then
+          OPENCV_DIR="${HOME}/.local/opencv-4.13.0/lib/cmake/opencv4"
+        elif [ -f /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake ]; then
+          OPENCV_DIR=/usr/local/lib/cmake/opencv4
+        elif [ -f /opt/homebrew/opt/opencv/lib/cmake/opencv4/OpenCVConfig.cmake ]; then
+          OPENCV_DIR=/opt/homebrew/opt/opencv/lib/cmake/opencv4
+        elif [ -f /usr/local/opt/opencv/lib/cmake/opencv4/OpenCVConfig.cmake ]; then
+          OPENCV_DIR=/usr/local/opt/opencv/lib/cmake/opencv4
+        fi
+      fi
       export OPENCV_DIR
+      if [ -n "${OPENCV_DIR:-}" ]; then
+        ocv_prefix="$(cd "${OPENCV_DIR}/../../.." && pwd)"
+        export DYLD_FALLBACK_LIBRARY_PATH="${ocv_prefix}/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+        export PKG_CONFIG_PATH="${ocv_prefix}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+      fi
       ;;
   esac
 fi
@@ -40,6 +51,8 @@ fi
 if [ -n "$CARGO_TARGET_DIR" ]; then
   export CARGO_TARGET_DIR
   mkdir -p "$CARGO_TARGET_DIR"
+else
+  unset CARGO_TARGET_DIR
 fi
 
 # Use project venv when present (local dev); Docker/CI set NBIS_PATH to venv bin.
