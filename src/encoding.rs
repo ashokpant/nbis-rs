@@ -238,8 +238,11 @@ pub fn compare_iso_19794_2_2011_batch(
     if threads <= 1 || gallery_templates.len() == 1 {
         let mut scores = Vec::with_capacity(gallery_templates.len());
         for g in gallery_templates {
-            let gallery = load_iso_19794_2_2011(g)?;
-            scores.push(probe.compare(&gallery));
+            let score = match load_iso_19794_2_2011(g) {
+                Ok(gallery) => probe.compare(&gallery),
+                Err(_) => 0,
+            };
+            scores.push(score);
         }
         return Ok(scores);
     }
@@ -255,8 +258,11 @@ pub fn compare_iso_19794_2_2011_batch(
         gallery_templates
             .par_iter()
             .map(|g| {
-                let gallery = load_iso_19794_2_2011(g)?;
-                Ok(probe.compare(&gallery))
+                // One bad gallery must not abort the whole 1:N batch.
+                match load_iso_19794_2_2011(g) {
+                    Ok(gallery) => Ok(probe.compare(&gallery)),
+                    Err(_) => Ok(0),
+                }
             })
             .collect()
     })
@@ -312,6 +318,7 @@ pub fn load_iso_19794_2_2005(template_bytes: &[u8]) -> Result<Minutiae, NbisErro
         minutiae_start,
         num_minutiae,
         6,
+        template_bytes.len(),
         MinQualityScale::ZeroTo63,
     )?;
 
@@ -341,9 +348,11 @@ fn parse_iso_2011_template(template_bytes: &[u8]) -> Result<Minutiae, NbisError>
     }
 
     let total_length = usize_from_be_u32(&template_bytes[8..12])?;
-    if total_length != template_bytes.len() {
+    // Allow trailing padding after the declared template length; reject truncation.
+    if total_length > template_bytes.len() {
         return Err(NbisError::InvalidTemplate("Total length mismatch".into()));
     }
+    let template_bytes = &template_bytes[..total_length];
 
     let fp_count = usize::from(u16::from_be_bytes([template_bytes[12], template_bytes[13]]));
     if fp_count != 1 {
@@ -407,6 +416,7 @@ fn parse_iso_2011_template(template_bytes: &[u8]) -> Result<Minutiae, NbisError>
     let height = u16::from_be_bytes([template_bytes[offset], template_bytes[offset + 1]]);
     offset += 2;
 
+    // High nibble = bytes per minutia record (ISO 19794-2); low nibble = ending type.
     let min_bytes = (template_bytes[offset] >> 4) & 0x0f;
     offset += 1;
 
@@ -414,18 +424,22 @@ fn parse_iso_2011_template(template_bytes: &[u8]) -> Result<Minutiae, NbisError>
     offset += 1;
 
     let min_record_len = usize::from(min_bytes);
-    if min_record_len != 5 && min_record_len != 6 {
+    // 5/6 are standard; 7/8 appear in vendor/extended templates (extra reserved bytes).
+    if !(5..=8).contains(&min_record_len) {
         return Err(NbisError::InvalidTemplate(format!(
             "unsupported MINBYTES: {min_bytes}"
         )));
     }
 
+    // Leave room for EXTBYTES (u16) after the minutiae block when present.
+    let minutiae_end_limit = fp_end.saturating_sub(2).max(offset);
     let minutiae = decode_minutiae_records(
         template_bytes,
         offset,
         num_minutiae,
         min_record_len,
-        if min_record_len == 6 {
+        minutiae_end_limit,
+        if min_record_len >= 6 {
             MinQualityScale::ZeroTo100
         } else {
             MinQualityScale::ZeroTo63
@@ -446,6 +460,7 @@ fn decode_minutiae_records(
     minutiae_start: usize,
     num_minutiae: usize,
     record_len: usize,
+    end_limit: usize,
     quality_scale: MinQualityScale,
 ) -> Result<Vec<Minutia>, NbisError> {
     const MAX_TEMPLATE_MINUTIAE: usize = 512;
@@ -454,33 +469,34 @@ fn decode_minutiae_records(
             "too many minutiae: {num_minutiae}"
         )));
     }
-    let minutiae_bytes = num_minutiae
-        .checked_mul(record_len)
-        .and_then(|n| minutiae_start.checked_add(n))
-        .ok_or_else(|| NbisError::InvalidTemplate("minutiae size overflow".into()))?;
-    if minutiae_bytes > template_bytes.len() {
+    if record_len == 0 {
+        return Err(NbisError::InvalidTemplate("invalid minutia record length".into()));
+    }
+    if minutiae_start > end_limit || end_limit > template_bytes.len() {
         return Err(NbisError::InvalidTemplate(
             "minutiae data exceeds template".into(),
         ));
     }
 
-    let mut minutiae = Vec::with_capacity(num_minutiae);
-    for i in 0..num_minutiae {
+    let available = end_limit - minutiae_start;
+    let max_fit = available / record_len;
+    let n = num_minutiae.min(max_fit);
+    // Truncate when templates advertise more minutiae than the block can hold
+    // (common with truncated gallery blobs); refuse only if nothing fits but count > 0.
+    if n == 0 && num_minutiae > 0 {
+        return Err(NbisError::InvalidTemplate(
+            "minutiae data exceeds template".into(),
+        ));
+    }
+
+    let mut minutiae = Vec::with_capacity(n);
+    for i in 0..n {
         let start = minutiae_start + record_len * i;
-        let end = start + record_len;
-        if end > template_bytes.len() {
-            return Err(NbisError::InvalidTemplate(
-                "Minutia data overflow".to_string(),
-            ));
-        }
-        if record_len == 6 {
-            let m_bytes: [u8; 6] = template_bytes[start..end].try_into().unwrap();
-            minutiae.push(decode_minutia(&m_bytes, quality_scale));
-        } else {
-            let mut m_bytes = [0u8; 6];
-            m_bytes[..5].copy_from_slice(&template_bytes[start..end]);
-            minutiae.push(decode_minutia(&m_bytes, quality_scale));
-        }
+        let mut m_bytes = [0u8; 6];
+        let copy_len = record_len.min(6);
+        m_bytes[..copy_len].copy_from_slice(&template_bytes[start..start + copy_len]);
+        // Extended 7/8-byte records: first 6 bytes are the standard ISO minutia fields.
+        minutiae.push(decode_minutia(&m_bytes, quality_scale));
     }
     Ok(minutiae)
 }
@@ -531,5 +547,91 @@ mod tests {
         let reloaded = load_iso_19794_2_2011(&buf).unwrap();
         assert_eq!(reloaded.inner.len(), 1);
         assert_eq!(reloaded.quality().score, 75);
+    }
+
+    #[test]
+    fn iso_2011_accepts_minbytes_8_and_trailing_padding() {
+        let m = Minutia {
+            x: 10,
+            y: 20,
+            direction: 4,
+            reliability: 0.8,
+            kind: MinutiaKind::RidgeEnding,
+        };
+        let minutiae = Minutiae::new(
+            vec![m.clone(), m],
+            100,
+            100,
+            Nfiq2Result {
+                score: 50,
+                actionable: Vec::new(),
+                features: Vec::new(),
+            },
+            None,
+        );
+        let mut buf = to_iso_19794_2_2011(&minutiae).unwrap();
+        // Locate MINBYTES byte (0x60) and rewrite to 8-byte records; expand each
+        // minutia from 6 → 8 bytes and fix lengths.
+        let min_fmt_idx = buf
+            .iter()
+            .position(|&b| b == 0x60)
+            .expect("MINBYTES marker");
+        let num_idx = min_fmt_idx + 1;
+        let n = buf[num_idx] as usize;
+        assert_eq!(n, 2);
+        let minutiae_start = num_idx + 1;
+        let old_minutiae = buf[minutiae_start..minutiae_start + n * 6].to_vec();
+        let ext = buf[minutiae_start + n * 6..].to_vec();
+        buf[min_fmt_idx] = 0x80; // MINBYTES=8
+        let mut expanded = Vec::new();
+        for chunk in old_minutiae.chunks(6) {
+            expanded.extend_from_slice(chunk);
+            expanded.extend_from_slice(&[0u8, 0u8]);
+        }
+        buf.truncate(minutiae_start);
+        buf.extend_from_slice(&expanded);
+        buf.extend_from_slice(&ext);
+        // Fix total + fingerprint lengths.
+        let total = buf.len() as u32;
+        buf[8..12].copy_from_slice(&total.to_be_bytes());
+        let fp_bytes = (total as usize - ISO_2011_HEADER_LEN) as u32;
+        buf[15..19].copy_from_slice(&fp_bytes.to_be_bytes());
+        buf.extend_from_slice(&[0u8; 4]); // trailing padding
+        let loaded = load_iso_19794_2_2011(&buf).unwrap();
+        assert_eq!(loaded.inner.len(), 2);
+    }
+
+    #[test]
+    fn batch_skips_invalid_gallery_templates() {
+        let mut points = Vec::new();
+        for i in 0..20 {
+            points.push(Minutia {
+                x: 10 + i * 3,
+                y: 20 + i * 2,
+                direction: (i % 16) as i32,
+                reliability: 0.9,
+                kind: MinutiaKind::RidgeEnding,
+            });
+        }
+        let probe = Minutiae::new(
+            points,
+            200,
+            200,
+            Nfiq2Result {
+                score: 60,
+                actionable: Vec::new(),
+                features: Vec::new(),
+            },
+            None,
+        );
+        let probe_iso = to_iso_19794_2_2011(&probe).unwrap();
+        let good = to_iso_19794_2_2011(&probe).unwrap();
+        let bad = b"not-an-iso-template".to_vec();
+        let scores = compare_iso_19794_2_2011_batch(&probe_iso, &[good, bad]).unwrap();
+        assert_eq!(scores.len(), 2);
+        assert!(scores[0] >= 0);
+        assert_eq!(scores[1], 0);
+        // Self-match should be strongly positive with enough minutiae.
+        assert!(scores[0] > 50, "expected strong self-match, got {}", scores[0]);
     }
 }
