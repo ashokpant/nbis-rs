@@ -224,6 +224,44 @@ pub fn compare_iso_19794_2_2011(probe_template: &[u8], gallery_template: &[u8]) 
     Ok(probe.compare(&gallery))
 }
 
+/// Parallel 1:N Bozorth scores. Thread count from `NBIS_BOZORTH_THREADS` (default `min(n_cpus, 8)`).
+pub fn compare_iso_19794_2_2011_batch(
+    probe_template: &[u8],
+    gallery_templates: &[Vec<u8>],
+) -> Result<Vec<i32>, NbisError> {
+    let probe = load_iso_19794_2_2011(probe_template)?;
+    if gallery_templates.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let threads = crate::bozorth_pool::bozorth_thread_count();
+    if threads <= 1 || gallery_templates.len() == 1 {
+        let mut scores = Vec::with_capacity(gallery_templates.len());
+        for g in gallery_templates {
+            let gallery = load_iso_19794_2_2011(g)?;
+            scores.push(probe.compare(&gallery));
+        }
+        return Ok(scores);
+    }
+
+    use rayon::prelude::*;
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .map_err(|e| NbisError::GenericError(format!("Bozorth thread pool: {e}")))?;
+
+    pool.install(|| {
+        gallery_templates
+            .par_iter()
+            .map(|g| {
+                let gallery = load_iso_19794_2_2011(g)?;
+                Ok(probe.compare(&gallery))
+            })
+            .collect()
+    })
+}
+
 /// Loads an ISO/IEC 19794-2:2011 fingerprint template from bytes.
 pub fn load_iso_19794_2_2011(template_bytes: &[u8]) -> Result<Minutiae, NbisError> {
     if template_bytes.len() >= 8 && &template_bytes[0..8] == ISO_2005_VERSION {

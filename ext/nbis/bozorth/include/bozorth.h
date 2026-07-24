@@ -44,6 +44,15 @@ of the software.
 #ifndef _BOZORTH_H
 #define _BOZORTH_H
 
+/* Per-thread Bozorth workspace: enables concurrent 1:N matching in one process. */
+#if defined(_MSC_VER)
+#  define BZ_THREAD_LOCAL __declspec(thread)
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_THREADS__)
+#  define BZ_THREAD_LOCAL _Thread_local
+#else
+#  define BZ_THREAD_LOCAL __thread
+#endif
+
 /* The max number of points in any Probe or Gallery XYT is set to 200; */
 /* a pointwise comparison table therefore has a maximum number of:     */
 /*		(200^2)/2 = 20000 comparisons. */
@@ -223,37 +232,38 @@ extern int verbose_main;
 extern int verbose_load;
 extern int verbose_bozorth;
 extern int verbose_threshold;
-/* Global supporting error reporting */
-extern FILE *errorfp;
+/* Global supporting error reporting (thread-local; ensure before match) */
+extern BZ_THREAD_LOCAL FILE *errorfp;
+void nbis_bozorth_ensure_errorfp(void);
 /* NULL-safe logging: legacy code assumed a valid FILE*; library builds used NULL. */
 #define BZ_FPRINTF(...) do { if (errorfp != NULL) (void)fprintf(errorfp, __VA_ARGS__); } while (0)
 
 /**************************************************************************/
-/* In: BZ_GBLS.C */
+/* In: BZ_GBLS.C — thread-local workspace for parallel Bozorth */
 /**************************************************************************/
 /* Global arrays supporting "core" bozorth algorithm */
-extern int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];
-extern int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];
-extern int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];
-extern int * scolpt[ SCOLPT_SIZE ];
-extern int * fcolpt[ FCOLPT_SIZE ];
-extern int sc[ SC_SIZE ];
-extern int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
+extern BZ_THREAD_LOCAL int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];
+extern BZ_THREAD_LOCAL int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+extern BZ_THREAD_LOCAL int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+extern BZ_THREAD_LOCAL int * scolpt[ SCOLPT_SIZE ];
+extern BZ_THREAD_LOCAL int * fcolpt[ FCOLPT_SIZE ];
+extern BZ_THREAD_LOCAL int sc[ SC_SIZE ];
+extern BZ_THREAD_LOCAL int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
 /* Global arrays supporting "core" bozorth algorithm continued: */
 /*    Globals used significantly by sift() */
-extern int rq[ RQ_SIZE ];
-extern int tq[ TQ_SIZE ];
-extern int zz[ ZZ_SIZE ];
-extern int rx[ RX_SIZE ];
-extern int mm[ MM_SIZE ];
-extern int nn[ NN_SIZE ];
-extern int qq[ QQ_SIZE ];
-extern int rk[ RK_SIZE ];
-extern int cp[ CP_SIZE ];
-extern int rp[ RP_SIZE ];
-extern int rf[RF_SIZE_1][RF_SIZE_2];
-extern int cf[CF_SIZE_1][CF_SIZE_2];
-extern int y[20000];
+extern BZ_THREAD_LOCAL int rq[ RQ_SIZE ];
+extern BZ_THREAD_LOCAL int tq[ TQ_SIZE ];
+extern BZ_THREAD_LOCAL int zz[ ZZ_SIZE ];
+extern BZ_THREAD_LOCAL int rx[ RX_SIZE ];
+extern BZ_THREAD_LOCAL int mm[ MM_SIZE ];
+extern BZ_THREAD_LOCAL int nn[ NN_SIZE ];
+extern BZ_THREAD_LOCAL int qq[ QQ_SIZE ];
+extern BZ_THREAD_LOCAL int rk[ RK_SIZE ];
+extern BZ_THREAD_LOCAL int cp[ CP_SIZE ];
+extern BZ_THREAD_LOCAL int rp[ RP_SIZE ];
+extern BZ_THREAD_LOCAL int rf[RF_SIZE_1][RF_SIZE_2];
+extern BZ_THREAD_LOCAL int cf[CF_SIZE_1][CF_SIZE_2];
+extern BZ_THREAD_LOCAL int y[20000];
 
 /**************************************************************************/
 /**************************************************************************/

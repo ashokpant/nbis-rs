@@ -474,7 +474,7 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutia_y() != 50671:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_minutiae_compare() != 16630:
+    if lib.uniffi_nbis_checksum_method_minutiae_compare() != 58458:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_get() != 15862:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -490,11 +490,13 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011() != 54521:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011_batch() != 7028:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae() != 45214:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file() != 23955:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked() != 21429:
+    if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native() != 25019:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005() != 24382:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -713,6 +715,13 @@ _UniffiLib.uniffi_nbis_fn_method_nbisextractor_compare_iso_19794_2_2011.argtypes
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_compare_iso_19794_2_2011.restype = ctypes.c_int32
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_compare_iso_19794_2_2011_batch.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_compare_iso_19794_2_2011_batch.restype = _UniffiRustBuffer
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae.argtypes = (
     ctypes.c_void_p,
     _UniffiRustBuffer,
@@ -725,12 +734,15 @@ _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_void_p
-_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked.argtypes = (
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native.argtypes = (
     ctypes.c_void_p,
     _UniffiRustBuffer,
+    ctypes.c_uint32,
+    ctypes.c_uint32,
+    ctypes.c_double,
     ctypes.POINTER(_UniffiRustCallStatus),
 )
-_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked.restype = ctypes.c_void_p
+_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native.restype = ctypes.c_void_p
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
     ctypes.c_void_p,
     _UniffiRustBuffer,
@@ -1076,15 +1088,18 @@ _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_annotate_minutiae_from_imag
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011.restype = ctypes.c_uint16
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011_batch.argtypes = (
+)
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_compare_iso_19794_2_2011_batch.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_uint16
-_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked.argtypes = (
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native.argtypes = (
 )
-_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_unlocked.restype = ctypes.c_uint16
+_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.restype = ctypes.c_uint16
@@ -1901,6 +1916,56 @@ class _UniffiConverterOptionalTypeRoi(_UniffiConverterRustBuffer):
 
 
 
+class _UniffiConverterSequenceInt32(_UniffiConverterRustBuffer):
+    @classmethod
+    def check_lower(cls, value):
+        for item in value:
+            _UniffiConverterInt32.check_lower(item)
+
+    @classmethod
+    def write(cls, value, buf):
+        items = len(value)
+        buf.write_i32(items)
+        for item in value:
+            _UniffiConverterInt32.write(item, buf)
+
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative sequence length")
+
+        return [
+            _UniffiConverterInt32.read(buf) for i in range(count)
+        ]
+
+
+
+class _UniffiConverterSequenceBytes(_UniffiConverterRustBuffer):
+    @classmethod
+    def check_lower(cls, value):
+        for item in value:
+            _UniffiConverterBytes.check_lower(item)
+
+    @classmethod
+    def write(cls, value, buf):
+        items = len(value)
+        buf.write_i32(items)
+        for item in value:
+            _UniffiConverterBytes.write(item, buf)
+
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative sequence length")
+
+        return [
+            _UniffiConverterBytes.read(buf) for i in range(count)
+        ]
+
+
+
 class _UniffiConverterSequenceTypeMinutia(_UniffiConverterRustBuffer):
     @classmethod
     def check_lower(cls, value):
@@ -2122,6 +2187,8 @@ class MinutiaeProtocol(typing.Protocol):
         """
         Similarity via Bozorth‑3 (higher = more similar). A score > 50 is a likely match.
 
+        Thread-safe and parallel: Bozorth C workspace is thread-local (nbis-rs ≥ 0.1.18).
+
         # Arguments
         * `other` — another `Minutiae` object to compare against.
 
@@ -2179,6 +2246,8 @@ class Minutiae():
     def compare(self, other: "Minutiae") -> "int":
         """
         Similarity via Bozorth‑3 (higher = more similar). A score > 50 is a likely match.
+
+        Thread-safe and parallel: Bozorth C workspace is thread-local (nbis-rs ≥ 0.1.18).
 
         # Arguments
         * `other` — another `Minutiae` object to compare against.
@@ -2281,11 +2350,24 @@ class NbisExtractorProtocol(typing.Protocol):
         """
 
         raise NotImplementedError
+    def compare_iso_19794_2_2011_batch(self, probe_template: "bytes",gallery_templates: "typing.List[bytes]"):
+        """
+        Parallel 1:N Bozorth scores for one probe vs many ISO galleries.
+
+        Thread count: `NBIS_BOZORTH_THREADS` or `min(n_cpus, 8)`. Safe to call concurrently
+        with other matches (Bozorth is thread-local); still serialize extracts separately.
+        """
+
+        raise NotImplementedError
     def extract_minutiae(self, image_bytes: "bytes"):
         raise NotImplementedError
     def extract_minutiae_from_image_file(self, file_path: "str"):
         raise NotImplementedError
-    def extract_minutiae_unlocked(self, image_bytes: "bytes"):
+    def extract_minutiae_native(self, gray_buf: "bytes",iw: "int",ih: "int",ppi: "float"):
+        """
+        mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
+        """
+
         raise NotImplementedError
     def load_iso_19794_2_2005(self, template_bytes: "bytes"):
         """
@@ -2366,6 +2448,28 @@ class NbisExtractor():
 
 
 
+    def compare_iso_19794_2_2011_batch(self, probe_template: "bytes",gallery_templates: "typing.List[bytes]") -> "typing.List[int]":
+        """
+        Parallel 1:N Bozorth scores for one probe vs many ISO galleries.
+
+        Thread count: `NBIS_BOZORTH_THREADS` or `min(n_cpus, 8)`. Safe to call concurrently
+        with other matches (Bozorth is thread-local); still serialize extracts separately.
+        """
+
+        _UniffiConverterBytes.check_lower(probe_template)
+        
+        _UniffiConverterSequenceBytes.check_lower(gallery_templates)
+        
+        return _UniffiConverterSequenceInt32.lift(
+            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_compare_iso_19794_2_2011_batch,self._uniffi_clone_pointer(),
+        _UniffiConverterBytes.lower(probe_template),
+        _UniffiConverterSequenceBytes.lower(gallery_templates))
+        )
+
+
+
+
+
     def extract_minutiae(self, image_bytes: "bytes") -> "Minutiae":
         _UniffiConverterBytes.check_lower(image_bytes)
         
@@ -2390,12 +2494,25 @@ class NbisExtractor():
 
 
 
-    def extract_minutiae_unlocked(self, image_bytes: "bytes") -> "Minutiae":
-        _UniffiConverterBytes.check_lower(image_bytes)
+    def extract_minutiae_native(self, gray_buf: "bytes",iw: "int",ih: "int",ppi: "float") -> "Minutiae":
+        """
+        mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
+        """
+
+        _UniffiConverterBytes.check_lower(gray_buf)
+        
+        _UniffiConverterUInt32.check_lower(iw)
+        
+        _UniffiConverterUInt32.check_lower(ih)
+        
+        _UniffiConverterDouble.check_lower(ppi)
         
         return _UniffiConverterTypeMinutiae.lift(
-            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_unlocked,self._uniffi_clone_pointer(),
-        _UniffiConverterBytes.lower(image_bytes))
+            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native,self._uniffi_clone_pointer(),
+        _UniffiConverterBytes.lower(gray_buf),
+        _UniffiConverterUInt32.lower(iw),
+        _UniffiConverterUInt32.lower(ih),
+        _UniffiConverterDouble.lower(ppi))
         )
 
 

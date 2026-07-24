@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <bozorth.h>
 
 /*  ---- globals required by bozorth3.c --------------------------- */
 /*
@@ -7,13 +8,20 @@
  * are NOT gated by NOVERBOSE. Leaving errorfp as NULL causes a segfault
  * during 1:N matching when overflow is hit — exactly the gallery-search
  * crash mode. Use a silent sink so logs stay quiet but fprintf is safe.
+ *
+ * errorfp is thread-local (0.1.18+); call nbis_bozorth_ensure_errorfp()
+ * on each thread before matching (bozorth_main does this).
  */
-FILE *errorfp = NULL;
+BZ_THREAD_LOCAL FILE *errorfp = NULL;
 
 int  m1_xyt  = 0;              /* 0 = CW angle math (matches NBIS default)      */
 int  min_computable_minutiae = 15;  /* same hard-coded default NBIS uses       */
 
-static void nbis_bozorth_ensure_errorfp(void)
+/* Declared in bozorth.h; never defined in stock NBIS library build. */
+int verbose_bozorth = 0;
+int verbose_threshold = 0;
+
+void nbis_bozorth_ensure_errorfp(void)
 {
 	if (errorfp != NULL)
 		return;

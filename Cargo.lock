@@ -756,13 +756,14 @@ dependencies = [
 
 [[package]]
 name = "nbis-rs"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "cc",
  "cmake",
  "image",
  "imageproc",
  "pkg-config",
+ "rayon",
  "thiserror 2.0.12",
  "uniffi",
 ]

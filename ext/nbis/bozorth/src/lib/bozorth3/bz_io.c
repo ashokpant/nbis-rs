@@ -144,10 +144,10 @@ return 0;
 
 /***********************************************************************/
 
-/* Used by the following set* and get* routines */
-static char program_buffer[ 1024 ];
-static char * pfile;
-static char * gfile;
+/* Used by the following set* and get* routines (TLS for parallel match logging) */
+static BZ_THREAD_LOCAL char program_buffer[ 1024 ];
+static BZ_THREAD_LOCAL char * pfile;
+static BZ_THREAD_LOCAL char * gfile;
 static char empty_name[] = "";
 static char default_progname[] = "nbis";
 

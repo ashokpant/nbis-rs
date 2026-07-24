@@ -369,10 +369,10 @@ register int * rotptr;
 #define ROT_SIZE_1 20000
 #define ROT_SIZE_2 5
 
-static int rot[ ROT_SIZE_1 ][ ROT_SIZE_2 ];
+static BZ_THREAD_LOCAL int rot[ ROT_SIZE_1 ][ ROT_SIZE_2 ];
 
 
-static int * rtp[ ROT_SIZE_1 ];
+static BZ_THREAD_LOCAL int * rtp[ ROT_SIZE_1 ];
 
 
 
@@ -591,11 +591,11 @@ return edge_pair_index;			/* Return the number of compatible edge pairs stored i
 /* These global arrays are declared "static" as they are only used        */
 /* between bz_match_score() & bz_final_loop()                             */
 /**************************************************************************/
-static int ct[ CT_SIZE ];
-static int gct[ GCT_SIZE ];
-static int ctt[ CTT_SIZE ];
-static int ctp[ CTP_SIZE_1 ][ CTP_SIZE_2 ];
-static int yy[ YY_SIZE_1 ][ YY_SIZE_2 ][ YY_SIZE_3 ];
+static BZ_THREAD_LOCAL int ct[ CT_SIZE ];
+static BZ_THREAD_LOCAL int gct[ GCT_SIZE ];
+static BZ_THREAD_LOCAL int ctt[ CTT_SIZE ];
+static BZ_THREAD_LOCAL int ctp[ CTP_SIZE_1 ][ CTP_SIZE_2 ];
+static BZ_THREAD_LOCAL int yy[ YY_SIZE_1 ][ YY_SIZE_2 ][ YY_SIZE_3 ];
 
 static int    bz_final_loop( int );
 
@@ -1683,7 +1683,7 @@ int match_score;
 /* locally because it is only used herein.  The use of   */
 /* "static" is required as the array will exceed the     */
 /* stack allocation on our local systems otherwise.      */
-static int sct[ SCT_SIZE_1 ][ SCT_SIZE_2 ];
+static BZ_THREAD_LOCAL int sct[ SCT_SIZE_1 ][ SCT_SIZE_2 ];
 
 match_score = 0;
 for ( ii = 0; ii < tp; ii++ ) {				/* For each index up to the current value of TP ... */

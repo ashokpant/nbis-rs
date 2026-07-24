@@ -3,6 +3,7 @@
 uniffi::setup_scaffolding!();
 
 mod bozorth;
+mod bozorth_pool;
 mod consts;
 mod encoding;
 mod errors;

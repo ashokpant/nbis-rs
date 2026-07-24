@@ -12,7 +12,7 @@ use crate::{
     imutils::{draw_arrow_with_head, png_bytes_from_rgb},
     mindtct_guard::MindtctOutputs,
     minutia::{Minutia, MinutiaKind},
-    native_guard::with_native_lock,
+    native_guard::with_extract_lock,
     nfiq2_api::{new_nfiq2, Nfiq2},
     sivv::{find_fingerprint_center, is_fingerprint, sivv},
     structs::NbisExtractorSettings,
@@ -70,6 +70,18 @@ impl NbisExtractor {
         gallery_template: &[u8],
     ) -> Result<i32, NbisError> {
         crate::encoding::compare_iso_19794_2_2011(probe_template, gallery_template)
+    }
+
+    /// Parallel 1:N Bozorth scores for one probe vs many ISO galleries.
+    ///
+    /// Thread count: `NBIS_BOZORTH_THREADS` or `min(n_cpus, 8)`. Safe to call concurrently
+    /// with other matches (Bozorth is thread-local); still serialize extracts separately.
+    pub fn compare_iso_19794_2_2011_batch(
+        &self,
+        probe_template: &[u8],
+        gallery_templates: Vec<Vec<u8>>,
+    ) -> Result<Vec<i32>, NbisError> {
+        crate::encoding::compare_iso_19794_2_2011_batch(probe_template, &gallery_templates)
     }
 
     /// Load ISO/IEC 19794-2:2005 templates (and auto-detect 2011 when applicable).
@@ -148,28 +160,29 @@ impl NbisExtractor {
     }
 
     pub fn extract_minutiae(&self, image_bytes: &[u8]) -> Result<Minutiae, NbisError> {
-        with_native_lock(|| self.extract_minutiae_unlocked(image_bytes))
-    }
-
-    fn extract_minutiae_unlocked(&self, image_bytes: &[u8]) -> Result<Minutiae, NbisError> {
+        // Image decode is pure Rust — keep it outside the extract lock.
         let ppi = self.settings.ppi.unwrap_or(500.0);
-
         let image = image::load_from_memory(image_bytes).map_err(|_| NbisError::ImageLoadError)?;
-
         let gray: GrayImage = match image {
             DynamicImage::ImageLuma8(buf) => buf,
             _ => image.to_luma8(),
         };
         let (iw, ih) = gray.dimensions();
+        let gray_buf = gray.into_raw();
 
-        let mut gray_buf = gray.into_raw();
+        with_extract_lock(|| self.extract_minutiae_native(gray_buf, iw, ih, ppi))
+    }
 
+    /// mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
+    fn extract_minutiae_native(
+        &self,
+        mut gray_buf: Vec<u8>,
+        iw: u32,
+        ih: u32,
+        ppi: f64,
+    ) -> Result<Minutiae, NbisError> {
         if self.settings.check_fingerprint {
-            let sivv_result = sivv(
-                gray_buf.as_mut_ptr(),
-                iw as i32,
-                ih as i32,
-            )?;
+            let sivv_result = sivv(gray_buf.as_mut_ptr(), iw as i32, ih as i32)?;
             if !is_fingerprint(&sivv_result) {
                 return Ok(Minutiae::new(
                     Vec::new(),
@@ -240,12 +253,11 @@ impl NbisExtractor {
             return Err(NbisError::UnexpectedError(rc as i64));
         }
 
-        let gray_for_nfiq = GrayImage::from_raw(iw, ih, gray_buf)
-            .ok_or(NbisError::ImageLoadError)?;
+        let gray_for_nfiq =
+            GrayImage::from_raw(iw, ih, gray_buf).ok_or(NbisError::ImageLoadError)?;
 
         let quality = if self.settings.compute_nfiq2 {
-            self.nfiq2_lock()?
-                .compute_from_luma(&gray_for_nfiq)?
+            self.nfiq2_lock()?.compute_from_luma(&gray_for_nfiq)?
         } else {
             Nfiq2Result {
                 score: 0,
@@ -364,6 +376,138 @@ mod tests {
         for handle in handles {
             handle.join().expect("extract thread panicked");
         }
+    }
+
+    #[test]
+    fn concurrent_compare_is_parallel_and_correct() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let extractor = new_nbis_extractor(NbisExtractorSettings {
+            compute_nfiq2: false,
+            ..NbisExtractorSettings::default()
+        })
+        .unwrap();
+        let p1 = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_1.png").unwrap())
+            .unwrap();
+        let p2 = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_2.png").unwrap())
+            .unwrap();
+        let p3 = extractor
+            .extract_minutiae(&fs::read("test_data/p2/p2_1.png").unwrap())
+            .unwrap();
+
+        let serial_12 = p1.compare(&p2);
+        let serial_13 = p1.compare(&p3);
+        let serial_23 = p2.compare(&p3);
+
+        let p1 = Arc::new(p1);
+        let p2 = Arc::new(p2);
+        let p3 = Arc::new(p3);
+
+        let handles: Vec<_> = (0..16)
+            .map(|i| {
+                let a = Arc::clone(&p1);
+                let b = Arc::clone(&p2);
+                let c = Arc::clone(&p3);
+                thread::spawn(move || {
+                    let s12 = a.compare(&b);
+                    let s13 = a.compare(&c);
+                    let s23 = b.compare(&c);
+                    assert_eq!(s12, serial_12, "thread {i} p1↔p2");
+                    assert_eq!(s13, serial_13, "thread {i} p1↔p3");
+                    assert_eq!(s23, serial_23, "thread {i} p2↔p3");
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().expect("compare thread panicked");
+        }
+    }
+
+    #[test]
+    fn extract_and_match_overlap_is_safe() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let image = fs::read("test_data/p1/p1_1.png").unwrap();
+        let extractor = Arc::new(
+            new_nbis_extractor(NbisExtractorSettings {
+                compute_nfiq2: false,
+                ..NbisExtractorSettings::default()
+            })
+            .unwrap(),
+        );
+        let probe = Arc::new(
+            extractor
+                .extract_minutiae(&fs::read("test_data/p1/p1_1.png").unwrap())
+                .unwrap(),
+        );
+        let gallery = Arc::new(
+            extractor
+                .extract_minutiae(&fs::read("test_data/p1/p1_2.png").unwrap())
+                .unwrap(),
+        );
+        let expected = probe.compare(&gallery);
+
+        let mut handles = Vec::new();
+        for _ in 0..4 {
+            let ex = Arc::clone(&extractor);
+            let bytes = image.clone();
+            handles.push(thread::spawn(move || {
+                for _ in 0..3 {
+                    let tpl = ex.extract_minutiae(&bytes).unwrap();
+                    assert!(!tpl.inner.is_empty());
+                }
+            }));
+        }
+        for _ in 0..8 {
+            let p = Arc::clone(&probe);
+            let g = Arc::clone(&gallery);
+            handles.push(thread::spawn(move || {
+                for _ in 0..20 {
+                    assert_eq!(p.compare(&g), expected);
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("extract‖match thread panicked");
+        }
+    }
+
+    #[test]
+    fn batch_compare_matches_serial() {
+        let extractor = new_nbis_extractor(NbisExtractorSettings {
+            compute_nfiq2: false,
+            ..NbisExtractorSettings::default()
+        })
+        .unwrap();
+        let a = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_1.png").unwrap())
+            .unwrap();
+        let b = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_2.png").unwrap())
+            .unwrap();
+        let c = extractor
+            .extract_minutiae(&fs::read("test_data/p2/p2_1.png").unwrap())
+            .unwrap();
+        let probe = a.to_iso_19794_2_2011().unwrap();
+        let galleries = vec![
+            b.to_iso_19794_2_2011().unwrap(),
+            c.to_iso_19794_2_2011().unwrap(),
+            a.to_iso_19794_2_2011().unwrap(),
+        ];
+        let serial: Vec<i32> = galleries
+            .iter()
+            .map(|g| extractor.compare_iso_19794_2_2011(&probe, g).unwrap())
+            .collect();
+        let batch = extractor
+            .compare_iso_19794_2_2011_batch(&probe, galleries)
+            .unwrap();
+        assert_eq!(batch, serial);
     }
 
     #[test]

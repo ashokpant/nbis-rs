@@ -19,20 +19,28 @@
 | NFIQ2 wrapper instance | `Nfiq2` | `Drop` → `nfiq2wrapper_destroy` |
 | SIVV CSV string | `sivv_ffi_from_bytes` | `sivv_ffi_free_bytes` after copy to Rust `String` |
 
-## Threading
+## Threading (0.1.18+)
 
-- **Single process**: `extract_minutiae` and `Minutiae::compare` are serialized by an internal `NBIS_NATIVE_MUTEX` (mindtct, Bozorth, NFIQ2, SIVV). You cannot get true CPU-parallel native extract in one Python/Rust process; extra threads queue on this lock.
-- **True parallel extract**: run **multiple OS processes** (e.g. Gunicorn/Uvicorn workers, `multiprocessing.Pool`, Kubernetes replicas). Each process loads its own `libnbis.so` and mutex; throughput scales with worker count.
-- **Defense in depth**: Python embedders may still use a module-level `RLock` around all `nbis` calls; it should not be required if you use `nbis-python` ≥ 0.1.12 with the native mutex.
-- **NFIQ2**: one C++ model per `Nfiq2`; `NbisExtractor` also uses `Mutex<Nfiq2>` per instance (nested under the native mutex during extract).
+| Path | In-process parallelism | Mechanism |
+|------|------------------------|-----------|
+| ISO load / encode | Yes | Pure Rust, unlocked |
+| Image decode (before extract) | Yes | Pure Rust, outside extract lock |
+| **Bozorth match** (`Minutiae::compare`, `compare_iso_*`) | **Yes** | Thread-local Bozorth C workspace |
+| mindtct extract / SIVV / NFIQ2 | No (serialized) | `EXTRACT_LOCK` only |
+| Multi-process extract | Yes (recommended) | Process pool / workers |
+
+- **Parallel match**: Bozorth globals (`colp`, `qq`, scratch in `bozorth3.c`, sort stack, etc.) are `BZ_THREAD_LOCAL`. Concurrent compares in one process are safe and produce the same scores as serial.
+- **Serialized extract**: `extract_minutiae` holds `EXTRACT_LOCK` only around mindtct/SIVV/NFIQ2 (image decode is outside the lock). True parallel extract still needs **multiple OS processes**.
+- **Batch 1:N**: `NbisExtractor::compare_iso_19794_2_2011_batch` runs Bozorth on a Rayon pool sized by `NBIS_BOZORTH_THREADS` (default `min(n_cpus, 8)`). Set `NBIS_BOZORTH_THREADS=1` to force sequential.
+- **Defense in depth**: Python embedders may keep an `RLock` around **extract** paths; match/batch no longer need a process-wide Python lock when using `nbis-python` ≥ 0.1.18.
+- **NFIQ2**: one C++ model per `Nfiq2`; `NbisExtractor` also uses `Mutex<Nfiq2>` per instance (nested under the extract lock).
 - **`Nfiq2` is not `Clone`** (avoids double `destroy`).
-- **Pure Rust** (`load_iso_19794_2_2011`, `to_iso_19794_2_2011`, `compare_iso_19794_2_2011`, and legacy `load_iso_19794_2_2005`): template load/encode need no native lock; `compare_iso_19794_2_2011` calls Bozorth via `Minutiae::compare` and uses the native mutex.
 
 ## Bozorth match / 1:N search
 
-- Bozorth C uses process-global tables; never call match concurrently without the native mutex (already held by `Minutiae::compare`).
-- **qq[] overflow paths** historically called `fprintf(errorfp, …)` with `errorfp == NULL` and NULL probe/gallery filenames. That is undefined behavior and segfaults under gallery search when overflow is hit. Fixed in 0.1.17+:
-  - `errorfp` is initialized to a silent `/dev/null` (or `stderr` fallback), never left NULL
+- Concurrent Bozorth in one process is supported (≥ 0.1.18). Prefer `compare_iso_19794_2_2011_batch` for large galleries.
+- **qq[] overflow paths** historically called `fprintf(errorfp, …)` with `errorfp == NULL` and NULL probe/gallery filenames. Fixed in 0.1.17+:
+  - `errorfp` is initialized to a silent `/dev/null` (or `stderr` fallback), never left NULL; TLS threads call `nbis_bozorth_ensure_errorfp()` from `bozorth_main`
   - filename getters never return NULL
   - overflow logs use `BZ_FPRINTF` (NULL-safe)
 - On overflow, Rust still maps score `4000` → `0` (no match).
@@ -54,3 +62,4 @@
 - Valid fingerprint image bytes (corrupt WSQ/PNG may still crash inside legacy NBIS parsers).
 - Match OpenCV **4.13** at runtime to the wheel build.
 - Rebuild/publish a new wheel after changing native dependencies.
+- For extract throughput and SIGSEGV isolation on Linux, prefer a **process** pool over in-process extract threads.

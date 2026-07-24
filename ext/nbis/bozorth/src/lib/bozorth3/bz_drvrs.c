@@ -179,7 +179,8 @@ int np;
 int probe_len;
 int gallery_len;
 
-
+/* Per-thread silent error sink (TLS errorfp starts NULL on new threads). */
+nbis_bozorth_ensure_errorfp();
 
 #ifdef DEBUG
 	printf( "PROBE_INIT() called\n" );

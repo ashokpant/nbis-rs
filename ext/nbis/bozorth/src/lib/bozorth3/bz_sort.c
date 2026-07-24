@@ -116,9 +116,9 @@ qsort_decreasing() - quicksort an array of integers in decreasing
                      order [based on multisort.c, by Michael Garris
                      and Ted Zwiesler, 1986]
 ********************************************************/
-/* Used by custom quicksort code below */
-static int   stack[BZ_STACKSIZE];
-static int * stack_pointer = stack;
+/* Used by custom quicksort code below (thread-local for parallel Bozorth) */
+static BZ_THREAD_LOCAL int   stack[BZ_STACKSIZE];
+static BZ_THREAD_LOCAL int * stack_pointer;
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
@@ -235,6 +235,8 @@ int pivot;
 int llen, rlen;
 int lleft, lright, rleft, rright;
 
+/* Reset TLS stack pointer each sort (TLS pointer has no reliable static init). */
+stack_pointer = stack;
 
 if ( pushstack( left  ))
 	return 1;

@@ -53,75 +53,69 @@ of the software.
       Contains global variables responsible for supporting the
       Bozorth3 fingerprint matching "core" algorithm.
 
+      nbis-rs 0.1.18+: all mutable workspace is BZ_THREAD_LOCAL so
+      concurrent Bozorth calls in one process do not race.
+
 ***********************************************************************
 ***********************************************************************/
 
 #include <bozorth.h>
 
 /**************************************************************************/
-/* General supporting global variables */
+/* General supporting global variables (thread-local) */
 /**************************************************************************/
 
-int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];		/* Output from match(), this is a sorted table of compatible edge pairs containing: */
-						/*	DeltaThetaKJs, Subject's K, J, then On-File's {K,J} or {J,K} depending */
-						/* Sorted first on Subject's point index K, */
-						/*	then On-File's K or J point index (depending), */
-						/*	lastly on Subject's J point index */
-int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];	/* Subject's pointwise comparison table containing: */
-						/*	Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ), K,J,ThetaKJ */
-int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];	/* On-File Record's pointwise comparison table with: */
-						/*	Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ),K,J, ThetaKJ */
-int * scolpt[ SCOLPT_SIZE ];			/* Subject's list of pointers to pointwise comparison rows, sorted on: */
-						/*	Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
-int * fcolpt[ FCOLPT_SIZE ];			/* On-File Record's list of pointers to pointwise comparison rows sorted on: */
-						/*	Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
-int sc[ SC_SIZE ];				/* Flags all compatible edges in the Subject's Web */
+BZ_THREAD_LOCAL int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];
+BZ_THREAD_LOCAL int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+BZ_THREAD_LOCAL int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+BZ_THREAD_LOCAL int * scolpt[ SCOLPT_SIZE ];
+BZ_THREAD_LOCAL int * fcolpt[ FCOLPT_SIZE ];
+BZ_THREAD_LOCAL int sc[ SC_SIZE ];
 
-int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
+BZ_THREAD_LOCAL int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
 
 
 /**************************************************************************/
 /* Globals used significantly by sift() */
 /**************************************************************************/
 #ifdef TARGET_OS
-   int rq[ RQ_SIZE ];
-   int tq[ TQ_SIZE ];
-   int zz[ ZZ_SIZE ];
+   BZ_THREAD_LOCAL int rq[ RQ_SIZE ];
+   BZ_THREAD_LOCAL int tq[ TQ_SIZE ];
+   BZ_THREAD_LOCAL int zz[ ZZ_SIZE ];
 
-   int rx[ RX_SIZE ];
-   int mm[ MM_SIZE ];
-   int nn[ NN_SIZE ];
+   BZ_THREAD_LOCAL int rx[ RX_SIZE ];
+   BZ_THREAD_LOCAL int mm[ MM_SIZE ];
+   BZ_THREAD_LOCAL int nn[ NN_SIZE ];
 
-   int qq[ QQ_SIZE ];
+   BZ_THREAD_LOCAL int qq[ QQ_SIZE ];
 
-   int rk[ RK_SIZE ];
+   BZ_THREAD_LOCAL int rk[ RK_SIZE ];
 
-   int cp[ CP_SIZE ];
-   int rp[ RP_SIZE ];
+   BZ_THREAD_LOCAL int cp[ CP_SIZE ];
+   BZ_THREAD_LOCAL int rp[ RP_SIZE ];
 
-   int rf[RF_SIZE_1][RF_SIZE_2];
-   int cf[CF_SIZE_1][CF_SIZE_2];
+   BZ_THREAD_LOCAL int rf[RF_SIZE_1][RF_SIZE_2];
+   BZ_THREAD_LOCAL int cf[CF_SIZE_1][CF_SIZE_2];
 
-   int y[20000];
+   BZ_THREAD_LOCAL int y[20000];
 #else
-   int rq[ RQ_SIZE ] = {};
-   int tq[ TQ_SIZE ] = {};
-   int zz[ ZZ_SIZE ] = {};
+   BZ_THREAD_LOCAL int rq[ RQ_SIZE ] = {};
+   BZ_THREAD_LOCAL int tq[ TQ_SIZE ] = {};
+   BZ_THREAD_LOCAL int zz[ ZZ_SIZE ] = {};
 
-   int rx[ RX_SIZE ] = {};
-   int mm[ MM_SIZE ] = {};
-   int nn[ NN_SIZE ] = {};
+   BZ_THREAD_LOCAL int rx[ RX_SIZE ] = {};
+   BZ_THREAD_LOCAL int mm[ MM_SIZE ] = {};
+   BZ_THREAD_LOCAL int nn[ NN_SIZE ] = {};
 
-   int qq[ QQ_SIZE ] = {};
+   BZ_THREAD_LOCAL int qq[ QQ_SIZE ] = {};
 
-   int rk[ RK_SIZE ] = {};
+   BZ_THREAD_LOCAL int rk[ RK_SIZE ] = {};
 
-   int cp[ CP_SIZE ] = {};
-   int rp[ RP_SIZE ] = {};
+   BZ_THREAD_LOCAL int cp[ CP_SIZE ] = {};
+   BZ_THREAD_LOCAL int rp[ RP_SIZE ] = {};
 
-   int rf[RF_SIZE_1][RF_SIZE_2] = {};
-   int cf[CF_SIZE_1][CF_SIZE_2] = {};
+   BZ_THREAD_LOCAL int rf[RF_SIZE_1][RF_SIZE_2] = {};
+   BZ_THREAD_LOCAL int cf[CF_SIZE_1][CF_SIZE_2] = {};
 
-   int y[20000] = {};
+   BZ_THREAD_LOCAL int y[20000] = {};
 #endif
-
