@@ -5,7 +5,7 @@
 
 # Python
 dist/
-build/
+# Do not ignore ./build/ — Rust build.rs modules live there (config.rs, deps.rs, …).
 *.egg-info/
 __pycache__/
 .venv/
