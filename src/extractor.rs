@@ -172,8 +172,10 @@ impl NbisExtractor {
 
         with_extract_lock(|| self.extract_minutiae_native(gray_buf, iw, ih, ppi))
     }
+}
 
-    /// mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
+impl NbisExtractor {
+    /// mindtct / SIVV / NFIQ2 — caller must hold the extract lock. Not UniFFI-exported.
     fn extract_minutiae_native(
         &self,
         mut gray_buf: Vec<u8>,
@@ -347,6 +349,29 @@ mod tests {
 
     use super::*;
     use std::fs;
+
+    #[test]
+    fn list_matches_get_fields() {
+        let extractor = new_nbis_extractor(NbisExtractorSettings {
+            compute_nfiq2: false,
+            ..NbisExtractorSettings::default()
+        })
+        .unwrap();
+        let tpl = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_1.png").unwrap())
+            .unwrap();
+        let via_list = tpl.list();
+        let via_get = tpl.get();
+        assert_eq!(via_list.len(), via_get.len());
+        assert!(!via_list.is_empty());
+        for (a, b) in via_list.iter().zip(via_get.iter()) {
+            assert_eq!(a.x, b.x());
+            assert_eq!(a.y, b.y());
+            assert_eq!(a.kind, b.kind());
+            assert!((a.reliability - b.reliability()).abs() < 1e-9);
+            assert!((a.angle - b.angle()).abs() < 1e-9);
+        }
+    }
 
     #[test]
     fn concurrent_extract_is_safe() {

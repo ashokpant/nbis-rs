@@ -476,7 +476,9 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_compare() != 58458:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_minutiae_get() != 15862:
+    if lib.uniffi_nbis_checksum_method_minutiae_get() != 29742:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_nbis_checksum_method_minutiae_list() != 38663:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_quality() != 63465:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -495,8 +497,6 @@ def _uniffi_check_api_checksums(lib):
     if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae() != 45214:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file() != 23955:
-        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native() != 25019:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005() != 24382:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -671,6 +671,11 @@ _UniffiLib.uniffi_nbis_fn_method_minutiae_get.argtypes = (
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_nbis_fn_method_minutiae_get.restype = _UniffiRustBuffer
+_UniffiLib.uniffi_nbis_fn_method_minutiae_list.argtypes = (
+    ctypes.c_void_p,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_nbis_fn_method_minutiae_list.restype = _UniffiRustBuffer
 _UniffiLib.uniffi_nbis_fn_method_minutiae_quality.argtypes = (
     ctypes.c_void_p,
     ctypes.POINTER(_UniffiRustCallStatus),
@@ -734,15 +739,6 @@ _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_void_p
-_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native.argtypes = (
-    ctypes.c_void_p,
-    _UniffiRustBuffer,
-    ctypes.c_uint32,
-    ctypes.c_uint32,
-    ctypes.c_double,
-    ctypes.POINTER(_UniffiRustCallStatus),
-)
-_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native.restype = ctypes.c_void_p
 _UniffiLib.uniffi_nbis_fn_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
     ctypes.c_void_p,
     _UniffiRustBuffer,
@@ -1070,6 +1066,9 @@ _UniffiLib.uniffi_nbis_checksum_method_minutiae_compare.restype = ctypes.c_uint1
 _UniffiLib.uniffi_nbis_checksum_method_minutiae_get.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_minutiae_get.restype = ctypes.c_uint16
+_UniffiLib.uniffi_nbis_checksum_method_minutiae_list.argtypes = (
+)
+_UniffiLib.uniffi_nbis_checksum_method_minutiae_list.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_minutiae_quality.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_minutiae_quality.restype = ctypes.c_uint16
@@ -1097,9 +1096,6 @@ _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae.restype = 
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_from_image_file.restype = ctypes.c_uint16
-_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native.argtypes = (
-)
-_UniffiLib.uniffi_nbis_checksum_method_nbisextractor_extract_minutiae_native.restype = ctypes.c_uint16
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.argtypes = (
 )
 _UniffiLib.uniffi_nbis_checksum_method_nbisextractor_load_iso_19794_2_2005.restype = ctypes.c_uint16
@@ -1247,6 +1243,72 @@ class _UniffiConverterBytes(_UniffiConverterRustBuffer):
 
 
 
+
+
+class MinutiaView:
+    """
+    Plain minutia snapshot for FFI (no Object handles / clone_pointer).
+    Prefer this over `Minutiae.get()` → `Minutia` Object accessors in Python.
+    """
+
+    x: "int"
+    y: "int"
+    angle: "float"
+    """
+    Degrees from +X axis (east), same as `Minutia::angle()`.
+    """
+
+    reliability: "float"
+    kind: "MinutiaKind"
+    def __init__(self, *, x: "int", y: "int", angle: "float", reliability: "float", kind: "MinutiaKind"):
+        self.x = x
+        self.y = y
+        self.angle = angle
+        self.reliability = reliability
+        self.kind = kind
+
+    def __str__(self):
+        return "MinutiaView(x={}, y={}, angle={}, reliability={}, kind={})".format(self.x, self.y, self.angle, self.reliability, self.kind)
+
+    def __eq__(self, other):
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.angle != other.angle:
+            return False
+        if self.reliability != other.reliability:
+            return False
+        if self.kind != other.kind:
+            return False
+        return True
+
+class _UniffiConverterTypeMinutiaView(_UniffiConverterRustBuffer):
+    @staticmethod
+    def read(buf):
+        return MinutiaView(
+            x=_UniffiConverterInt32.read(buf),
+            y=_UniffiConverterInt32.read(buf),
+            angle=_UniffiConverterDouble.read(buf),
+            reliability=_UniffiConverterDouble.read(buf),
+            kind=_UniffiConverterTypeMinutiaKind.read(buf),
+        )
+
+    @staticmethod
+    def check_lower(value):
+        _UniffiConverterInt32.check_lower(value.x)
+        _UniffiConverterInt32.check_lower(value.y)
+        _UniffiConverterDouble.check_lower(value.angle)
+        _UniffiConverterDouble.check_lower(value.reliability)
+        _UniffiConverterTypeMinutiaKind.check_lower(value.kind)
+
+    @staticmethod
+    def write(value, buf):
+        _UniffiConverterInt32.write(value.x, buf)
+        _UniffiConverterInt32.write(value.y, buf)
+        _UniffiConverterDouble.write(value.angle, buf)
+        _UniffiConverterDouble.write(value.reliability, buf)
+        _UniffiConverterTypeMinutiaKind.write(value.kind, buf)
 
 
 class NbisExtractorSettings:
@@ -1991,6 +2053,31 @@ class _UniffiConverterSequenceTypeMinutia(_UniffiConverterRustBuffer):
 
 
 
+class _UniffiConverterSequenceTypeMinutiaView(_UniffiConverterRustBuffer):
+    @classmethod
+    def check_lower(cls, value):
+        for item in value:
+            _UniffiConverterTypeMinutiaView.check_lower(item)
+
+    @classmethod
+    def write(cls, value, buf):
+        items = len(value)
+        buf.write_i32(items)
+        for item in value:
+            _UniffiConverterTypeMinutiaView.write(item, buf)
+
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative sequence length")
+
+        return [
+            _UniffiConverterTypeMinutiaView.read(buf) for i in range(count)
+        ]
+
+
+
 class _UniffiConverterSequenceTypeNfiq2Value(_UniffiConverterRustBuffer):
     @classmethod
     def check_lower(cls, value):
@@ -2200,6 +2287,15 @@ class MinutiaeProtocol(typing.Protocol):
     def get(self, ):
         """
         Returns a vector of `Minutia` objects representing the minutiae in this set.
+
+        Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
+        `clone_pointer` and have segfaulted after mindtct on some images.
+        """
+
+        raise NotImplementedError
+    def list(self, ):
+        """
+        Plain minutiae records (preferred for Python — avoids UniFFI Object handle clones).
         """
 
         raise NotImplementedError
@@ -2270,10 +2366,26 @@ class Minutiae():
     def get(self, ) -> "typing.List[Minutia]":
         """
         Returns a vector of `Minutia` objects representing the minutiae in this set.
+
+        Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
+        `clone_pointer` and have segfaulted after mindtct on some images.
         """
 
         return _UniffiConverterSequenceTypeMinutia.lift(
             _uniffi_rust_call(_UniffiLib.uniffi_nbis_fn_method_minutiae_get,self._uniffi_clone_pointer(),)
+        )
+
+
+
+
+
+    def list(self, ) -> "typing.List[MinutiaView]":
+        """
+        Plain minutiae records (preferred for Python — avoids UniFFI Object handle clones).
+        """
+
+        return _UniffiConverterSequenceTypeMinutiaView.lift(
+            _uniffi_rust_call(_UniffiLib.uniffi_nbis_fn_method_minutiae_list,self._uniffi_clone_pointer(),)
         )
 
 
@@ -2362,12 +2474,6 @@ class NbisExtractorProtocol(typing.Protocol):
     def extract_minutiae(self, image_bytes: "bytes"):
         raise NotImplementedError
     def extract_minutiae_from_image_file(self, file_path: "str"):
-        raise NotImplementedError
-    def extract_minutiae_native(self, gray_buf: "bytes",iw: "int",ih: "int",ppi: "float"):
-        """
-        mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
-        """
-
         raise NotImplementedError
     def load_iso_19794_2_2005(self, template_bytes: "bytes"):
         """
@@ -2488,31 +2594,6 @@ class NbisExtractor():
         return _UniffiConverterTypeMinutiae.lift(
             _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_from_image_file,self._uniffi_clone_pointer(),
         _UniffiConverterString.lower(file_path))
-        )
-
-
-
-
-
-    def extract_minutiae_native(self, gray_buf: "bytes",iw: "int",ih: "int",ppi: "float") -> "Minutiae":
-        """
-        mindtct / SIVV / NFIQ2 — caller must hold the extract lock.
-        """
-
-        _UniffiConverterBytes.check_lower(gray_buf)
-        
-        _UniffiConverterUInt32.check_lower(iw)
-        
-        _UniffiConverterUInt32.check_lower(ih)
-        
-        _UniffiConverterDouble.check_lower(ppi)
-        
-        return _UniffiConverterTypeMinutiae.lift(
-            _uniffi_rust_call_with_error(_UniffiConverterTypeNbisError,_UniffiLib.uniffi_nbis_fn_method_nbisextractor_extract_minutiae_native,self._uniffi_clone_pointer(),
-        _UniffiConverterBytes.lower(gray_buf),
-        _UniffiConverterUInt32.lower(iw),
-        _UniffiConverterUInt32.lower(ih),
-        _UniffiConverterDouble.lower(ppi))
         )
 
 
@@ -2662,6 +2743,7 @@ __all__ = [
     "InternalError",
     "MinutiaKind",
     "NbisError",
+    "MinutiaView",
     "NbisExtractorSettings",
     "Nfiq2Result",
     "Nfiq2Value",

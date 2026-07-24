@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::minutia::Minutia;
+use crate::minutia::{Minutia, MinutiaView};
 use crate::structs::ROI;
 use crate::Nfiq2Result;
 use crate::{bozorth::bz_match_score, encoding::to_nist_xyt_set};
@@ -68,7 +68,15 @@ impl Minutiae {
         self.nfiq.clone()
     }
 
+    /// Plain minutiae records (preferred for Python — avoids UniFFI Object handle clones).
+    pub fn list(&self) -> Vec<MinutiaView> {
+        self.inner.iter().map(Minutia::to_view).collect()
+    }
+
     /// Returns a vector of `Minutia` objects representing the minutiae in this set.
+    ///
+    /// Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
+    /// `clone_pointer` and have segfaulted after mindtct on some images.
     pub fn get(&self) -> Vec<Arc<Minutia>> {
         self.inner.iter().cloned().map(Arc::new).collect()
     }

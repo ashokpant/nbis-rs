@@ -24,6 +24,6 @@ pub use structs::{NbisExtractorSettings, Point, ROI};
 pub use errors::NbisError;
 pub use extractor::new_nbis_extractor;
 pub use extractor::NbisExtractor;
-pub use minutia::{Minutia, MinutiaKind, Position};
+pub use minutia::{Minutia, MinutiaKind, MinutiaView, Position};
 pub use minutiae::Minutiae;
 pub use nfiq2_api::{Nfiq2Result, Nfiq2Value};
