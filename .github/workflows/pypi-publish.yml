@@ -21,6 +21,8 @@ jobs:
   build-wheels:
     name: Wheel (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
+    # macOS CI may fail on Homebrew OpenCV; Linux wheels are the critical publish path.
+    continue-on-error: ${{ matrix.label == 'macos' }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,6 +75,7 @@ jobs:
   publish-pypi:
     name: Upload to PyPI
     needs: [build-wheels]
+    if: ${{ always() && (needs.build-wheels.result == 'success' || needs.build-wheels.result == 'failure') }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -84,8 +87,13 @@ jobs:
           pattern: pypi-wheel-*
           merge-multiple: true
 
-      - name: List wheels
-        run: ls -lh dist/
+      - name: Require at least one wheel
+        run: |
+          ls -lh dist/ || true
+          test -n "$(ls dist/nbis_python*.whl 2>/dev/null)" || {
+            echo "No wheels uploaded from build jobs" >&2
+            exit 1
+          }
 
       - name: Twine check
         run: pip install twine && twine check dist/*.whl
