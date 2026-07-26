@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   OPENCV_DIR: /usr/local/lib/cmake/opencv4
@@ -77,6 +78,9 @@ jobs:
     needs: [build-wheels]
     if: ${{ always() && (needs.build-wheels.result == 'success' || needs.build-wheels.result == 'failure') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: pypi
       url: https://pypi.org/project/nbis-python/
@@ -102,5 +106,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+          # Prefer API token when present; otherwise trusted publishing (OIDC).
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
