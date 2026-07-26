@@ -49,6 +49,10 @@ int nfiq2wrapper_compute(Nfiq2Wrapper*    ctx,
     if (!ctx || !data || !out || size != cols * rows || cols == 0 || rows == 0) {
         return 1;
     }
+    // FingerJet quality measures are unreliable / crash-prone on tiny images.
+    if (cols < 96 || rows < 96) {
+        return 3;
+    }
 
     std::memset(out, 0, sizeof(*out));
 

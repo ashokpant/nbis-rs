@@ -76,9 +76,23 @@ impl Minutiae {
     /// Returns a vector of `Minutia` objects representing the minutiae in this set.
     ///
     /// Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
-    /// `clone_pointer` and have segfaulted after mindtct on some images.
+    /// UniFFI `clone_pointer` and have segfaulted after mindtct on some images.
+    ///
+    /// This still allocates UniFFI Object handles — use `list()` in production.
     pub fn get(&self) -> Vec<Arc<Minutia>> {
-        self.inner.iter().cloned().map(Arc::new).collect()
+        // Fresh owned copies (never alias into freed mindtct C memory).
+        self.inner
+            .iter()
+            .map(|m| {
+                Arc::new(Minutia {
+                    x: m.x,
+                    y: m.y,
+                    direction: m.direction,
+                    reliability: m.reliability,
+                    kind: m.kind.clone(),
+                })
+            })
+            .collect()
     }
 
     pub fn to_iso_19794_2_2011(&self) -> Result<Vec<u8>, crate::NbisError> {

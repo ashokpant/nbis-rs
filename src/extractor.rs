@@ -8,7 +8,9 @@ use imageproc::{
 
 use crate::{
     consts::MM_PER_INCH,
+    crash_guard::{with_native_crash_guard, CrashContext},
     ffi_nbis::{get_minutiae, DEFAULT_BOZORTH_MINUTIAE, LFSPARMS, MINUTIA, MINUTIAE},
+    image_limits::{nfiq2_image_ok, validate_extract_dims},
     imutils::{draw_arrow_with_head, png_bytes_from_rgb},
     mindtct_guard::MindtctOutputs,
     minutia::{Minutia, MinutiaKind},
@@ -22,34 +24,68 @@ use crate::{
 /// Maximum minutiae count accepted from NBIS C structures (DoS guard).
 const MAX_MINUTIAE_FROM_C: usize = 10_000;
 
+fn empty_nfiq2() -> Nfiq2Result {
+    Nfiq2Result {
+        score: 0,
+        actionable: Vec::new(),
+        features: Vec::new(),
+    }
+}
+
 #[derive(Debug, uniffi::Object)]
 pub struct NbisExtractor {
     settings: NbisExtractorSettings,
-    /// NFIQ2 C++ model is not documented as thread-safe; one mutex per extractor instance.
-    nfiq2: Mutex<Nfiq2>,
+    /// Lazily created when `compute_nfiq2` is enabled (NFIQ2 is heavy / crash-prone).
+    nfiq2: Mutex<Option<Nfiq2>>,
 }
 
 #[uniffi::export]
 pub fn new_nbis_extractor(settings: NbisExtractorSettings) -> Result<NbisExtractor, NbisError> {
-    let nfiq2 = new_nfiq2()?;
-    Ok(NbisExtractor {
-        settings,
-        nfiq2: Mutex::new(nfiq2),
-    })
+    NbisExtractor::new(settings)
 }
 
 impl NbisExtractor {
     pub fn new(settings: NbisExtractorSettings) -> Result<Self, NbisError> {
+        // Do not load NFIQ2 unless requested — avoids model init cost and crash surface.
+        let nfiq2 = if settings.compute_nfiq2 {
+            Some(new_nfiq2()?)
+        } else {
+            None
+        };
         Ok(NbisExtractor {
             settings,
-            nfiq2: Mutex::new(new_nfiq2()?),
+            nfiq2: Mutex::new(nfiq2),
         })
     }
 
-    fn nfiq2_lock(&self) -> Result<std::sync::MutexGuard<'_, Nfiq2>, NbisError> {
-        self.nfiq2
+    fn ensure_nfiq2(&self) -> Result<std::sync::MutexGuard<'_, Option<Nfiq2>>, NbisError> {
+        let mut guard = self
+            .nfiq2
             .lock()
-            .map_err(|_| NbisError::GenericError("NFIQ2 lock poisoned".into()))
+            .map_err(|_| NbisError::GenericError("NFIQ2 lock poisoned".into()))?;
+        if guard.is_none() {
+            *guard = Some(new_nfiq2()?);
+        }
+        Ok(guard)
+    }
+
+    /// Soft-fail NFIQ2: never abort extract; return score 0 on error/crash/tiny image.
+    fn compute_nfiq2_soft(&self, gray: &GrayImage) -> Nfiq2Result {
+        let (w, h) = gray.dimensions();
+        if !nfiq2_image_ok(w, h) {
+            return empty_nfiq2();
+        }
+        let mut slot = match self.ensure_nfiq2() {
+            Ok(g) => g,
+            Err(_) => return empty_nfiq2(),
+        };
+        let Some(nfiq) = slot.as_mut() else {
+            return empty_nfiq2();
+        };
+        match with_native_crash_guard(CrashContext::Nfiq2, || nfiq.compute_from_luma(gray)) {
+            Ok(Ok(q)) => q,
+            Ok(Err(_)) | Err(_) => empty_nfiq2(),
+        }
     }
 }
 
@@ -183,25 +219,23 @@ impl NbisExtractor {
         ih: u32,
         ppi: f64,
     ) -> Result<Minutiae, NbisError> {
+        validate_extract_dims(iw, ih, gray_buf.len())?;
+
         if self.settings.check_fingerprint {
-            let sivv_result = sivv(gray_buf.as_mut_ptr(), iw as i32, ih as i32)?;
+            let sivv_result = with_native_crash_guard(CrashContext::Sivv, || {
+                sivv(gray_buf.as_mut_ptr(), iw as i32, ih as i32)
+            })
+            .map_err(|c| NbisError::NativeCrash(c.message()))??;
             if !is_fingerprint(&sivv_result) {
-                return Ok(Minutiae::new(
-                    Vec::new(),
-                    iw,
-                    ih,
-                    Nfiq2Result {
-                        score: 0,
-                        actionable: Vec::new(),
-                        features: Vec::new(),
-                    },
-                    None,
-                ));
+                return Ok(Minutiae::new(Vec::new(), iw, ih, empty_nfiq2(), None));
             }
         }
 
         let roi = if self.settings.get_center {
-            let center = find_fingerprint_center(gray_buf.as_ptr(), iw as c_int, ih as c_int)?;
+            let center = with_native_crash_guard(CrashContext::Sivv, || {
+                find_fingerprint_center(gray_buf.as_ptr(), iw as c_int, ih as c_int)
+            })
+            .map_err(|c| NbisError::NativeCrash(c.message()))??;
 
             Some(ROI {
                 x1: center.1 .0,
@@ -225,7 +259,7 @@ impl NbisExtractor {
         let mut obd: c_int = 0;
         let ppmm = ppi / MM_PER_INCH;
 
-        let rc = unsafe {
+        let rc = with_native_crash_guard(CrashContext::Mindtct, || unsafe {
             unsafe extern "C" {
                 static lfsparms_V2: LFSPARMS;
             }
@@ -249,7 +283,8 @@ impl NbisExtractor {
                 ppmm,
                 &lfsparms_V2 as *const _,
             )
-        };
+        })
+        .map_err(|c| NbisError::NativeCrash(c.message()))?;
 
         if rc != 0 {
             return Err(NbisError::UnexpectedError(rc as i64));
@@ -258,14 +293,11 @@ impl NbisExtractor {
         let gray_for_nfiq =
             GrayImage::from_raw(iw, ih, gray_buf).ok_or(NbisError::ImageLoadError)?;
 
+        // Soft-fail: NFIQ2 must never take down extract / the host process.
         let quality = if self.settings.compute_nfiq2 {
-            self.nfiq2_lock()?.compute_from_luma(&gray_for_nfiq)?
+            self.compute_nfiq2_soft(&gray_for_nfiq)
         } else {
-            Nfiq2Result {
-                score: 0,
-                actionable: Vec::new(),
-                features: Vec::new(),
-            }
+            empty_nfiq2()
         };
 
         let minutiae_vec = parse_minutiae_from_c(maps.ominutiae)?;
@@ -728,5 +760,41 @@ mod tests {
         assert_eq!(roi.y2, 496);
         assert_eq!(roi.center.x, 182);
         assert_eq!(roi.center.y, 296);
+    }
+
+    #[test]
+    fn rejects_tiny_images() {
+        let extractor = new_nbis_extractor(NbisExtractorSettings {
+            compute_nfiq2: false,
+            ..NbisExtractorSettings::default()
+        })
+        .unwrap();
+        // 8x8 gray PNG
+        let img = image::GrayImage::from_pixel(8, 8, image::Luma([128u8]));
+        let mut bytes = Vec::new();
+        image::DynamicImage::ImageLuma8(img)
+            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .unwrap();
+        let err = extractor.extract_minutiae(&bytes).unwrap_err();
+        match err {
+            NbisError::GenericError(msg) => assert!(msg.contains("too small"), "{msg}"),
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn extract_without_nfiq2_skips_model_load() {
+        let extractor = new_nbis_extractor(NbisExtractorSettings {
+            compute_nfiq2: false,
+            ..NbisExtractorSettings::default()
+        })
+        .unwrap();
+        assert!(extractor.nfiq2.lock().unwrap().is_none());
+        let tpl = extractor
+            .extract_minutiae(&fs::read("test_data/p1/p1_1.png").unwrap())
+            .unwrap();
+        assert!(!tpl.inner.is_empty());
+        assert_eq!(tpl.quality().score, 0);
+        assert!(extractor.nfiq2.lock().unwrap().is_none());
     }
 }

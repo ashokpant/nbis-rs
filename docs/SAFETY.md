@@ -59,7 +59,18 @@
 
 ## Remaining embedder responsibilities
 
-- Valid fingerprint image bytes (corrupt WSQ/PNG may still crash inside legacy NBIS parsers).
+- Valid fingerprint image bytes (corrupt WSQ/PNG may still fault inside legacy NBIS parsers).
 - Match OpenCV **4.13** at runtime to the wheel build.
 - Rebuild/publish a new wheel after changing native dependencies.
 - For extract throughput and SIGSEGV isolation on Linux, prefer a **process** pool over in-process extract threads.
+
+## Native crash conversion (0.1.21+)
+
+While holding the extract lock, mindtct / SIVV / NFIQ2 run under a Unix SIGSEGV/SIGBUS/SIGFPE
+catcher (`crash_guard`). A fault becomes `NbisError::NativeCrash` instead of killing the process.
+
+- **NFIQ2** soft-fails to score `0` (extract still returns minutiae).
+- **mindtct / SIVV** hard-fail with `NativeCrash` — recycle the worker process after this.
+- Image size gates: extract requires ≥32×32 and ≤4096×4096; NFIQ2 requires ≥96×96.
+- NFIQ2 model is created **only** when `compute_nfiq2=true`.
+- Prefer `Minutiae.list()` over `get()` (UniFFI Object `clone_pointer` after mindtct).

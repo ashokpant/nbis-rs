@@ -5,14 +5,20 @@ uniffi::setup_scaffolding!();
 mod bozorth;
 mod bozorth_pool;
 mod consts;
+#[cfg(unix)]
+mod crash_guard;
+#[cfg(not(unix))]
+#[path = "crash_guard_stub.rs"]
+mod crash_guard;
 mod encoding;
 mod errors;
 mod extractor;
 pub(crate) mod ffi_nbis;
 mod ffi_nfiq2;
+mod image_limits;
 mod imutils;
-mod minutia;
 mod mindtct_guard;
+mod minutia;
 mod minutiae;
 mod native_guard;
 mod nfiq2_api;

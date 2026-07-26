@@ -80,7 +80,7 @@ char * p;
 
 p = malloc( (size_t) nbytes );
 if ( p == CNULL ) {
-	fprintf( errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
+	BZ_FPRINTF("%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
 						get_progname(),
 						nbytes,
 						what,
@@ -99,7 +99,7 @@ char * p;
 
 p = malloc( (size_t) nbytes );
 if ( p == CNULL ) {
-	fprintf( errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
+	BZ_FPRINTF("%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
 						get_progname(),
 						nbytes,
 						what,

@@ -67,6 +67,13 @@ impl Nfiq2 {
         if cols == 0 || rows == 0 {
             return Err(NbisError::Nfiq2ComputeFailed(-1));
         }
+        // FingerJet / NFIQ2 is unstable on tiny crops — reject early.
+        if cols < crate::image_limits::MIN_NFIQ2_DIM || rows < crate::image_limits::MIN_NFIQ2_DIM {
+            return Err(NbisError::Nfiq2ComputeFailed(-2));
+        }
+        if gray.len() != (cols as usize) * (rows as usize) {
+            return Err(NbisError::Nfiq2ComputeFailed(-3));
+        }
 
         let ppi: u16 = 500;
         let mut raw: Nfiq2ResultsT = unsafe { std::mem::zeroed() };

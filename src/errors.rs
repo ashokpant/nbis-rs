@@ -28,4 +28,8 @@ pub enum NbisError {
 
     #[error("Coordinate out of ISO range: {0}")]
     CoordinateOutOfRange(String),
+
+    /// Converted from SIGSEGV/SIGBUS/SIGFPE inside guarded mindtct/NFIQ2/SIVV.
+    #[error("Native library crash: {0}")]
+    NativeCrash(String),
 }
