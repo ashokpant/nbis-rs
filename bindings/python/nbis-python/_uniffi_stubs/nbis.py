@@ -476,7 +476,7 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_compare() != 58458:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_nbis_checksum_method_minutiae_get() != 29742:
+    if lib.uniffi_nbis_checksum_method_minutiae_get() != 34044:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_nbis_checksum_method_minutiae_list() != 38663:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -1807,6 +1807,25 @@ class NbisError:  # type: ignore
         def __repr__(self):
             return "NbisError.CoordinateOutOfRange({})".format(str(self))
     _UniffiTempNbisError.CoordinateOutOfRange = CoordinateOutOfRange # type: ignore
+    class NativeCrash(_UniffiTempNbisError):
+        """
+        Converted from SIGSEGV/SIGBUS/SIGFPE inside guarded mindtct/NFIQ2/SIVV.
+        """
+
+        def __init__(self, *values):
+            if len(values) != 1:
+                raise TypeError(f"Expected 1 arguments, found {len(values)}")
+            if not isinstance(values[0], str):
+                raise TypeError(f"unexpected type for tuple element 0 - expected 'str', got '{type(values[0])}'")
+            super().__init__(", ".join(map(repr, values)))
+            self._values = values
+
+        def __getitem__(self, index):
+            return self._values[index]
+
+        def __repr__(self):
+            return "NbisError.NativeCrash({})".format(str(self))
+    _UniffiTempNbisError.NativeCrash = NativeCrash # type: ignore
 
 NbisError = _UniffiTempNbisError # type: ignore
 del _UniffiTempNbisError
@@ -1856,6 +1875,10 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
             return NbisError.CoordinateOutOfRange(
                 _UniffiConverterString.read(buf),
             )
+        if variant == 12:
+            return NbisError.NativeCrash(
+                _UniffiConverterString.read(buf),
+            )
         raise InternalError("Raw enum value doesn't match any cases")
 
     @staticmethod
@@ -1889,6 +1912,9 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
         if isinstance(value, NbisError.CoordinateOutOfRange):
             _UniffiConverterString.check_lower(value._values[0])
             return
+        if isinstance(value, NbisError.NativeCrash):
+            _UniffiConverterString.check_lower(value._values[0])
+            return
 
     @staticmethod
     def write(value, buf):
@@ -1920,6 +1946,9 @@ class _UniffiConverterTypeNbisError(_UniffiConverterRustBuffer):
             buf.write_i32(10)
         if isinstance(value, NbisError.CoordinateOutOfRange):
             buf.write_i32(11)
+            _UniffiConverterString.write(value._values[0], buf)
+        if isinstance(value, NbisError.NativeCrash):
+            buf.write_i32(12)
             _UniffiConverterString.write(value._values[0], buf)
 
 
@@ -2289,7 +2318,9 @@ class MinutiaeProtocol(typing.Protocol):
         Returns a vector of `Minutia` objects representing the minutiae in this set.
 
         Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
-        `clone_pointer` and have segfaulted after mindtct on some images.
+        UniFFI `clone_pointer` and have segfaulted after mindtct on some images.
+
+        This still allocates UniFFI Object handles — use `list()` in production.
         """
 
         raise NotImplementedError
@@ -2368,7 +2399,9 @@ class Minutiae():
         Returns a vector of `Minutia` objects representing the minutiae in this set.
 
         Prefer [`Self::list`] from Python: per-object `kind()`/`x()` calls use
-        `clone_pointer` and have segfaulted after mindtct on some images.
+        UniFFI `clone_pointer` and have segfaulted after mindtct on some images.
+
+        This still allocates UniFFI Object handles — use `list()` in production.
         """
 
         return _UniffiConverterSequenceTypeMinutia.lift(
